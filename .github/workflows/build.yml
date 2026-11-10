@@ -75,6 +75,19 @@ jobs:
             throw "selftest output contains no Arabic text"
           }
 
+      - name: Audio capture smoke test (frozen exe)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\ArabicLessonScribe\ArabicLessonScribe.exe" `
+            -ArgumentList "--list-audio" `
+            -RedirectStandardOutput audio.out.txt -RedirectStandardError audio.err.txt `
+            -Wait -PassThru -NoNewWindow
+          Get-Content audio.out.txt -Raw
+          if ($p.ExitCode -ne 0) { throw "list-audio exit code $($p.ExitCode)" }
+          $a = Get-Content audio.out.txt -Raw | ConvertFrom-Json
+          if (-not $a.imports.sounddevice) { throw "sounddevice not bundled" }
+          if (-not $a.imports.pyaudiowpatch) { throw "pyaudiowpatch not bundled" }
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 

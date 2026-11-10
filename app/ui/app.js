@@ -6,7 +6,22 @@ const STRINGS = {
     app_name: "Arabic Lesson Scribe",
     drop_title: "Drop a recording here or click to choose",
     drop_hint: "mp3, m4a, wav, ogg, opus, amr, 3gp, mp4, flac",
-    rec_btn: "Record a lesson", rec_btn_hint: "with this computer's microphone", rec_title: "Record a lesson",
+    rec_btn: "Record a lesson", rec_btn_hint: "an online lesson, your microphone, or both", rec_title: "Record a lesson",
+    rec_src_system: "Computer sound (your teacher in the online lesson)", rec_src_mic: "My microphone (your own voice)",
+    rec_tip_headphones: "Use headphones so your microphone does not pick up the teacher a second time (echo).",
+    rec_consent: "Tell your teacher you are recording; some places require consent.",
+    rec_no_output: "No speakers or headphones were found.", rec_no_mic_note: "No microphone was found.",
+    rec_hint_no_system: "No computer sound detected: is the lesson playing through this computer's default speakers or headphones?",
+    rec_need_source: "Switch on at least one source.",
+    rec_notice_output_changed: "The speakers or headphones changed. The recording continues with the new device.",
+    rec_notice_system_stopped: "The computer's sound stopped (speakers unplugged or switched off?). Your microphone is still being recorded.",
+    rec_notice_mic_stopped: "The microphone stopped (unplugged or switched off?). The computer's sound is still being recorded.",
+    rec_lost_system: "Recording stopped because the sound source was lost (speakers or microphone changed or unplugged). Everything recorded so far is saved.",
+    rec_err_NO_OUTPUT: "No speakers or headphones were found, so the computer's sound cannot be recorded. Plug one in, or switch off 'Computer sound'.",
+    rec_err_LOOPBACK_DENIED: "Windows did not allow the computer's sound to be recorded. Another app may have taken exclusive control of the speakers: close it and try again.",
+    rec_err_LOOPBACK_ERROR: "The computer's sound could not be recorded. You can still record with your microphone only.",
+    rec_err_LOOPBACK_UNAVAILABLE: "Recording the computer's sound is not available on this computer.",
+    rec_err_NO_SOURCE: "Switch on at least one source: the computer's sound or your microphone.",
     rec_device: "Microphone", rec_start: "Start recording", rec_pause: "Pause", rec_resume: "Resume", rec_stop: "Stop and save",
     rec_tip: "Put the computer close to the teacher, in a quiet room. Keep this window open while recording.",
     rec_state_ready: "Ready", rec_state_recording: "Recording", rec_state_paused: "Paused",
@@ -111,7 +126,22 @@ const STRINGS = {
   fr: { // partial stub: missing keys fall back to English
     app_name: "Arabic Lesson Scribe",
     drop_title: "Déposez un enregistrement ici ou cliquez pour le choisir",
-    rec_btn: "Enregistrer un cours", rec_btn_hint: "avec le microphone de cet ordinateur", rec_title: "Enregistrer un cours",
+    rec_btn: "Enregistrer un cours", rec_btn_hint: "un cours en ligne, votre microphone, ou les deux", rec_title: "Enregistrer un cours",
+    rec_src_system: "Son de l'ordinateur (votre enseignant dans le cours en ligne)", rec_src_mic: "Mon microphone (votre propre voix)",
+    rec_tip_headphones: "Utilisez un casque pour que votre microphone ne capte pas l'enseignant une seconde fois (écho).",
+    rec_consent: "Prévenez votre enseignant que vous enregistrez ; certains lieux exigent un consentement.",
+    rec_no_output: "Aucun haut-parleur ni casque trouvé.", rec_no_mic_note: "Aucun microphone trouvé.",
+    rec_hint_no_system: "Aucun son de l'ordinateur détecté : le cours passe-t-il bien par les haut-parleurs ou le casque par défaut de cet ordinateur ?",
+    rec_need_source: "Activez au moins une source.",
+    rec_notice_output_changed: "Les haut-parleurs ou le casque ont changé. L'enregistrement continue avec le nouvel appareil.",
+    rec_notice_system_stopped: "Le son de l'ordinateur s'est arrêté (haut-parleurs débranchés ou éteints ?). Votre microphone est toujours enregistré.",
+    rec_notice_mic_stopped: "Le microphone s'est arrêté (débranché ou éteint ?). Le son de l'ordinateur est toujours enregistré.",
+    rec_lost_system: "L'enregistrement s'est arrêté car une source sonore a été perdue (haut-parleurs ou microphone changés ou débranchés). Tout ce qui a été enregistré est sauvegardé.",
+    rec_err_NO_OUTPUT: "Aucun haut-parleur ni casque trouvé : le son de l'ordinateur ne peut pas être enregistré. Branchez-en un, ou désactivez « Son de l'ordinateur ».",
+    rec_err_LOOPBACK_DENIED: "Windows n'a pas autorisé l'enregistrement du son de l'ordinateur. Une autre application a peut-être pris le contrôle exclusif des haut-parleurs : fermez-la et réessayez.",
+    rec_err_LOOPBACK_ERROR: "Le son de l'ordinateur n'a pas pu être enregistré. Vous pouvez enregistrer avec le microphone seul.",
+    rec_err_LOOPBACK_UNAVAILABLE: "L'enregistrement du son de l'ordinateur n'est pas disponible sur cet ordinateur.",
+    rec_err_NO_SOURCE: "Activez au moins une source : le son de l'ordinateur ou votre microphone.",
     rec_device: "Microphone", rec_start: "Démarrer l'enregistrement", rec_pause: "Pause", rec_resume: "Reprendre", rec_stop: "Arrêter et enregistrer",
     rec_tip: "Placez l'ordinateur près de l'enseignant, dans une pièce calme. Gardez cette fenêtre ouverte pendant l'enregistrement.",
     rec_state_ready: "Prêt", rec_state_recording: "Enregistrement", rec_state_paused: "En pause",
@@ -290,7 +320,7 @@ function fmtClock(s) {
 }
 function recErr(e) {
   const msg = String(e && e.message || e || "");
-  const m = /^(?:[\w.]*:)?\s*(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR|BUSY)\b/.exec(msg) || /(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR)/.exec(msg);
+  const m = /^(?:[\w.]*:)?\s*(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR|NO_OUTPUT|LOOPBACK_DENIED|LOOPBACK_ERROR|LOOPBACK_UNAVAILABLE|NO_SOURCE|BUSY)\b/.exec(msg) || /(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR|NO_OUTPUT|LOOPBACK_DENIED|LOOPBACK_ERROR|LOOPBACK_UNAVAILABLE|NO_SOURCE)/.exec(msg);
   if (m && STRINGS.en["rec_err_" + m[1]]) return t("rec_err_" + m[1]);
   return msg;
 }
@@ -299,26 +329,55 @@ function recSetState(st) {
   $("btn-rec-start").hidden = R.active;
   $("btn-rec-pause").hidden = !R.active; $("btn-rec-stop").hidden = !R.active;
   $("btn-rec-pause").textContent = t(R.paused ? "rec_resume" : "rec_pause");
-  $("rec-device").disabled = R.active;
+  for (const id of ["rec-device", "rec-output", "src-system", "src-mic"]) if ($(id)) $(id).disabled = R.active || (R.off && R.off[id]);
+  recSourcesChanged();
+}
+function recSourcesChanged() {
+  const sys = !$("src-system-row").hidden && $("src-system").checked, mic = $("src-mic").checked;
+  $("src-system-row").classList.toggle("off", !sys); $("src-mic-row").classList.toggle("off", !mic);
+  $("rec-tip-headphones").hidden = !(sys && mic);
+  $("btn-rec-start").disabled = !(sys || mic);
+  if (!R.active && !(sys || mic)) recHint(t("rec_need_source")); else if (!R.active) recHint("");
 }
 function recHint(msg) { const h = $("rec-hint"); h.textContent = msg || ""; h.hidden = !msg; }
+function recMeter(id, level, hot) {
+  const m = $(id); if (level == null) { m.style.width = "0"; return; }
+  m.style.width = Math.round(Math.min(1, Math.sqrt(level || 0) * 1.6) * 100) + "%"; m.classList.toggle("hot", !!hot);
+}
 async function openRecord() {
   if (S.job) return;
-  R.active = false; R.paused = false; R.lessonId = null;
+  R.active = false; R.paused = false; R.lessonId = null; R.off = {}; R.sources = null; R.notice = "";
   $("rec-live").hidden = false; $("rec-done").hidden = true;
-  $("rec-time").textContent = "0:00"; $("rec-meter").style.width = "0"; recHint("");
-  const sel = $("rec-device"); sel.textContent = "";
-  let devs = null;
-  try { devs = await api().list_input_devices(); } catch (e) { toast(recErr(e), true); return; }
-  for (const d of devs || []) { const o = el("option", "", d.name); o.value = d.id; if (d.default) o.selected = true; sel.append(o); }
-  if (!devs || !devs.length) { toast(t("rec_err_NO_MIC"), true); return; }
+  $("rec-time").textContent = "0:00"; recMeter("rec-meter-system", null); recMeter("rec-meter-mic", null); recHint("");
+  let info = null;
+  try {
+    const a = api();
+    info = a.list_audio_sources ? await a.list_audio_sources()
+      : { microphones: await a.list_input_devices(), loopback_available: false, outputs: [] };
+  } catch (e) { toast(recErr(e), true); return; }
+  const mics = info.microphones || [], outs = info.outputs || [], loop = !!info.loopback_available;
+  const fill = (sel, items) => { sel.textContent = ""; for (const d of items) { const o = el("option", "", d.name); o.value = d.id; if (d.default) o.selected = true; sel.append(o); } };
+  fill($("rec-device"), mics); fill($("rec-output"), outs);
+  $("rec-output").hidden = outs.length < 2;
+  $("src-system-row").hidden = !loop;           // no loopback on this platform: the option does not exist
+  const noOut = loop && !outs.length;
+  $("src-system").checked = loop && !noOut; $("src-system-note").hidden = !noOut; $("src-system-note").textContent = noOut ? t("rec_no_output") : "";
+  const noMic = !mics.length;
+  $("src-mic").checked = !noMic; $("src-mic-note").hidden = !noMic; $("src-mic-note").textContent = noMic ? t("rec_no_mic_note") : "";
+  $("rec-device").hidden = noMic;
+  R.off = { "src-system": noOut, "src-mic": noMic, "rec-output": noOut, "rec-device": noMic };
+  if (noMic && (!loop || noOut)) { toast(t("rec_err_NO_MIC"), true); return; }
   recSetState("ready"); show("record");
 }
 async function recStart() {
-  const dev = $("rec-device").value;
+  const sys = !$("src-system-row").hidden && $("src-system").checked, mic = $("src-mic").checked;
+  const dev = $("rec-device").value, out = $("rec-output").value;
+  const o = { sources: { system: sys, mic } };
+  if (mic && dev !== "") o.device_id = +dev;
+  if (sys && !$("rec-output").hidden && out !== "") o.system_device_id = +out;
   try {
-    const r = await api().start_recording({ device_id: dev === "" ? null : +dev });
-    R.active = true; R.paused = false; R.lessonId = r.lesson_id; recHint("");
+    const r = await api().start_recording(o);
+    R.active = true; R.paused = false; R.lessonId = r.lesson_id; R.sources = o.sources; recHint("");
     recSetState("recording");
   } catch (e) { toast(recErr(e), true); }
 }
@@ -336,7 +395,7 @@ function recDone(r) {
   R.active = false; R.lessonId = r.lesson_id;
   $("rec-live").hidden = true; $("rec-done").hidden = false;
   let msg = t("rec_done_len", { t: fmtClock(r.duration_s) });
-  if (r.reason === "device_lost") msg = t("rec_lost") + " " + msg;
+  if (r.reason === "device_lost") msg = t(R.sources && R.sources.system ? "rec_lost_system" : "rec_lost") + " " + msg;
   else if (r.reason === "disk_full") msg = t("rec_disk_stopped") + " " + msg;
   $("rec-done-msg").textContent = msg;
   loadHomeSilent();
@@ -363,9 +422,11 @@ function onRecordEvent(p) {
   if (p.state === "stopped" && p.final && R.active) { recDone(p); return; }
   if (!R.active) return;
   $("rec-time").textContent = fmtClock(p.elapsed_s);
-  const lv = Math.min(1, Math.sqrt(p.level || 0) * 1.6);
-  const m = $("rec-meter"); m.style.width = Math.round(lv * 100) + "%"; m.classList.toggle("hot", !!p.peak_clipping);
-  recHint(p.silent ? t("rec_silent") : p.peak_clipping ? t("rec_clip") : p.low_disk ? t("rec_low_disk") : "");
+  recMeter("rec-meter-system", p.level_system, p.peak_clipping); recMeter("rec-meter-mic", p.level_mic, p.peak_clipping);
+  if (p.notice_key || p.notice) R.notice = STRINGS.en["rec_notice_" + p.notice_key] ? t("rec_notice_" + p.notice_key) : p.notice;
+  const sysOn = R.sources && R.sources.system;
+  recHint(p.hint === "no_system_audio" ? t("rec_hint_no_system") : p.silent ? t(sysOn ? "rec_hint_no_system" : "rec_silent")
+    : p.peak_clipping ? t("rec_clip") : p.low_disk ? t("rec_low_disk") : R.notice);
 }
 
 /* ---------- import ---------- */
@@ -848,6 +909,7 @@ function wire() {
   $("btn-record").onclick = openRecord;
   $("btn-rec-start").onclick = recStart; $("btn-rec-pause").onclick = recPause; $("btn-rec-stop").onclick = recStop;
   $("btn-rec-cancel").onclick = recCancel;
+  $("src-system").onchange = recSourcesChanged; $("src-mic").onchange = recSourcesChanged;
   $("btn-rec-now").onclick = recTranscribeNow; $("btn-rec-later").onclick = () => { toast(t("status_recorded")); loadHome(); };
   $("btn-resume").onclick = resumeLesson;
   $("opt-auto").onchange = saveOpts;

@@ -71,27 +71,74 @@ language you did not tick, it is written in one of your ticked languages anyway,
 Tick every language the teacher really uses. With detection on, transcribing takes longer than with a
 single language (see the measured numbers in the full instructions).
 
-### Recording the lesson on this computer
+### Recording an online lesson (Zoom, Meet, Teams, WhatsApp Web...)
 
-Instead of a phone, you can record with the computer's own microphone. On the first screen click
-**Record a lesson** (next to the big box), pick the microphone, and click **Start recording**. The
-big clock shows how long you have been recording, and the bar moves when the microphone hears sound.
+The program can record the sound of the lesson itself, the voice of your teacher coming out of the
+computer, together with your own voice from the microphone. Both end up in one transcript, so your own
+questions (in Hebrew, for example) are written down too.
 
-- Put the computer close to the teacher, in a quiet room. Keep the program open while recording.
-- **Pause** and **Stop and save** are on the screen. The recording is saved to your disk as it goes, so
-  a two-hour lesson takes about 230 MB and the program does not fill up the computer's memory.
-- When you stop, choose **Transcribe now** or **Later**. A recording you saved for later is in your lesson
-  list, under today's date, and opens with a **Transcribe** button.
-- If the bar does not move for 20 seconds, the program says "No sound detected". Check the microphone.
-- If the microphone is unplugged, or the disk is almost full (less than 100 MB), the recording stops
-  and keeps everything recorded so far. If the program or the computer crashes during a recording, the
-  next time you open the program the unfinished recording is in your list as "Interrupted" and can be
-  transcribed.
+1. Join the lesson as you always do, in your usual program or web page.
+2. Open Arabic Lesson Scribe and click **Record a lesson**.
+3. Two switches are on: **Computer sound (your teacher in the online lesson)** and **My microphone (your
+   own voice)**. Leave both on. If you only want to capture one of them, switch the other off.
+4. Click **Start recording**. Keep the lesson playing through this computer's normal speakers or
+   headphones (the ones Windows uses by default). Do not mute the computer.
+5. Watch the two small bars. The top bar moves when the computer is playing sound (your teacher). The
+   bottom bar moves when the microphone hears you. If one of them never moves, that source is not being
+   recorded: see the list below.
+6. When the lesson is over, click **Stop and save**, then **Transcribe now** or **Later**.
+
+Good to know:
+
+- **Use headphones.** With speakers, your microphone also hears the teacher coming out of the
+  speakers, so the teacher is recorded twice, with a small echo. The program does not remove this echo.
+  Headphones avoid it completely.
+- **Tell your teacher and the other people that you are recording.** Some places and some schools
+  require everyone's consent.
+- If you want only the teacher, switch the microphone off. If you are in a room with the teacher (not
+  online), switch the computer sound off and use only the microphone.
+- Pause, Stop, the saving while you record, and the safe stop when the disk is almost full all work as
+  before. The recording is saved to your disk as it goes. If the program or the computer crashes, the
+  unfinished recording is in your list as "Interrupted" and can be transcribed.
+- Besides the transcript, the folder of the recording keeps two extra sound files, `system.wav` (the
+  computer's sound) and `mic.wav` (your microphone), in case you want to listen to one of them alone.
+- "No computer sound detected" after 20 seconds means the lesson is not playing through this computer's
+  default speakers or headphones. Check the sound output in the Windows volume menu (bottom right of the
+  screen), and that the lesson is not muted.
+- If you plug in or unplug headphones during the lesson, the program tries to follow the new output and
+  tells you. If it cannot, it keeps what was recorded and says so.
 - If Windows says the microphone is blocked: Settings, Privacy and security, Microphone, and switch on
   **Let desktop apps access your microphone**.
-- This records what the microphone hears. It cannot record the sound of an online lesson (Zoom, Meet)
-  that plays through the computer's speakers; for that, record on your phone near the speaker, or use
-  the recording function of the meeting program and open that file.
+- The program does not record sound that does not go through the computer's output, for example a call
+  on your phone.
+
+Honest limits:
+
+- Special "virtual" audio programs (virtual cables, some voice changers, some headset software) can move
+  the sound to a device the program does not follow. If the top bar stays still, switch them off or choose
+  the right output in the list under the switch.
+- A Bluetooth headset may switch to a low-quality "call mode" when the microphone is used. Your teacher
+  then sounds thinner, which can make the text less accurate. Use a headset with a cable, or use the
+  computer's own microphone with the Bluetooth headset only for listening.
+- A few programs take exclusive control of the speakers, and then the sound cannot be recorded. The
+  program tells you that. Close that program or switch off its exclusive mode in the Windows sound
+  settings.
+- On computers that are not Windows (and on Windows when the sound library is missing) the computer sound
+  switch does not appear, and only the microphone is recorded.
+
+### Recording with the computer's microphone only
+
+Instead of a phone you can use the microphone (for a lesson in the same room). Click **Record a lesson**,
+switch **Computer sound** off if it is shown, pick the microphone, and click **Start recording**. The big
+clock shows how long you have been recording.
+
+- Put the computer close to the teacher, in a quiet room. Keep the program open while recording.
+- **Pause** and **Stop and save** are on the screen. The recording is saved to your disk as it goes.
+- When you stop, choose **Transcribe now** or **Later**. A recording you saved for later is in your lesson
+  list.
+- If the bar does not move for 20 seconds, the program says "No sound detected". Check the microphone.
+- If the microphone is unplugged, or the disk is almost full (less than 100 MB), the recording stops
+  and keeps everything recorded so far.
 
 ### A one-hour recording
 

@@ -43,7 +43,8 @@ class Api:
         self._llm_lock = threading.Lock()
         self._rec: dict | None = None            # {rec: Recorder, lesson_id, done: bool}
         self._rec_lock = threading.Lock()
-        self._rec_factory = None                 # tests inject a fake stream factory here
+        self._rec_factory = None                 # tests inject a fake microphone stream factory here
+        self._sys_factory = None                 # ... and a fake computer-sound (loopback) factory here
         try:
             n = library.recover_interrupted()
             if n:
@@ -261,6 +262,31 @@ class Api:
     def list_input_devices(self) -> list:
         return recorder.list_input_devices()
 
+    def list_audio_sources(self) -> dict:
+        """{microphones:[{id,name,default}], loopback_available, outputs:[{id,name,default}]}. Never raises.
+        loopback_available is false off Windows; the UI then hides the computer-sound option."""
+        if self._sys_factory is not None:   # tests: pretend loopback exists
+            try:
+                mics = recorder.list_input_devices()
+            except Exception:  # noqa: BLE001
+                mics = []
+            return {"microphones": mics, "loopback_available": True,
+                    "outputs": [{"id": 0, "name": "Fake output", "default": True}]}
+        return recorder.list_audio_sources()
+
+    def _rec_sources(self, opts: dict) -> dict:
+        """Which sources to record. Defaults: computer sound and microphone where loopback exists, else microphone."""
+        avail = self._sys_factory is not None or recorder.loopback_available()
+        req = opts.get("sources") or {}
+        sysw = bool(req["system"]) if "system" in req else avail
+        micw = bool(req["mic"]) if "mic" in req else True
+        if not (sysw or micw):
+            raise ValueError("NO_SOURCE: switch on at least one source: the computer's sound or your microphone")
+        if sysw and not avail:
+            raise ValueError("LOOPBACK_UNAVAILABLE: recording the computer's sound is not available on this computer; "
+                             "record with the microphone only")
+        return {"system": sysw, "mic": micw}
+
     def start_recording(self, options: dict | None = None) -> dict:
         """Start recording from a microphone into a new lesson (a part of today's lesson day).
         Raises ValueError("NO_MIC: ..."), ("MIC_DENIED: ..."), ("MIC_ERROR: ..."), ("DISK_FULL: ...")."""
@@ -287,16 +313,19 @@ class Api:
                 day = library.parse_day(opts["date"])
                 recorded = datetime.strptime(day, "%Y-%m-%d").replace(hour=now.hour, minute=now.minute, second=now.second)
             title = (opts.get("title") or "").strip() or f"Recording {now:%H.%M}"
+            srcs = self._rec_sources(opts)
             lid = library.create_lesson(title, "", language, model, recorded,
                                         {"spoken_languages": spoken, "arabic_dialect": dialect, "mode": mode})
             wav = config.library_dir() / lid / "recording.wav"
-            library.update_meta(lid, status="recording", audio_path=str(wav), source="microphone")
+            kind = "microphone" if not srcs["system"] else ("computer" if not srcs["mic"] else "computer+microphone")
+            library.update_meta(lid, status="recording", audio_path=str(wav), source=kind, sources=srcs)
 
             def on_event(p):
                 self._emit("record", {"recording_id": lid, "lesson_id": lid, **p})
 
             rec = recorder.Recorder(wav, opts.get("device_id"), on_event, lambda info: self._rec_finished(lid, info),
-                                    stream_factory=self._rec_factory)
+                                    stream_factory=self._rec_factory, sources=srcs,
+                                    system_device=opts.get("system_device_id"), system_factory=self._sys_factory)
             try:
                 rec.start()
             except recorder.RecorderError as e:
@@ -304,7 +333,9 @@ class Api:
                 raise ValueError(str(e)) from e
             self._rec = {"rec": rec, "lesson_id": lid, "done": False, "info": None}
             self._emit("record", {"recording_id": lid, "lesson_id": lid, "state": "recording", "elapsed_s": 0.0,
-                                  "level": 0.0, "peak_clipping": False, "silent": False})
+                                  "level": 0.0, "level_system": 0.0 if srcs["system"] else None,
+                                  "level_mic": 0.0 if srcs["mic"] else None, "sources": srcs,
+                                  "peak_clipping": False, "silent": False})
         return {"recording_id": lid, "lesson_id": lid}
 
     def _current_rec(self) -> dict:
@@ -350,6 +381,8 @@ class Api:
                    "reason": info.get("reason", "stopped")}
             if info.get("message"):
                 res["message"] = info["message"]
+            if info.get("tracks"):
+                res["tracks"] = info["tracks"]
             if self._rec and self._rec["lesson_id"] == lid:
                 self._rec["result"] = res
         return res

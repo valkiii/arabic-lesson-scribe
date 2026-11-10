@@ -89,19 +89,30 @@
     <h1 id="rec-title" class="view-title" data-i18n="rec_title"></h1>
     <div id="rec-live">
       <div id="rec-time" class="rec-time" role="timer" aria-live="off">0:00</div>
-      <div class="meter" aria-hidden="true"><div id="rec-meter" class="meter-fill"></div></div>
       <p id="rec-state" class="muted center" role="status" aria-live="polite"></p>
       <p id="rec-hint" class="notice" role="status" aria-live="polite" hidden></p>
-      <div class="lang-row center">
-        <label for="rec-device" class="muted" data-i18n="rec_device"></label>
-        <select id="rec-device"></select>
+      <div class="src-rows">
+        <div id="src-system-row" class="src-row" hidden>
+          <label class="src-toggle"><input type="checkbox" id="src-system" checked><span data-i18n="rec_src_system"></span></label>
+          <div class="meter" aria-hidden="true"><div id="rec-meter-system" class="meter-fill"></div></div>
+          <select id="rec-output" aria-label="Speakers or headphones" hidden></select>
+          <p id="src-system-note" class="muted small" hidden></p>
+        </div>
+        <div id="src-mic-row" class="src-row">
+          <label class="src-toggle"><input type="checkbox" id="src-mic" checked><span data-i18n="rec_src_mic"></span></label>
+          <div class="meter" aria-hidden="true"><div id="rec-meter-mic" class="meter-fill"></div></div>
+          <select id="rec-device" aria-label="Microphone"></select>
+          <p id="src-mic-note" class="muted small" hidden></p>
+        </div>
       </div>
       <div class="actions center">
         <button id="btn-rec-start" class="btn primary" type="button" data-i18n="rec_start"></button>
         <button id="btn-rec-pause" class="btn" type="button" data-i18n="rec_pause" hidden></button>
         <button id="btn-rec-stop" class="btn primary" type="button" data-i18n="rec_stop" hidden></button>
       </div>
+      <p id="rec-tip-headphones" class="muted center small" data-i18n="rec_tip_headphones"></p>
       <p class="muted center small" data-i18n="rec_tip"></p>
+      <p class="muted center small" data-i18n="rec_consent"></p>
       <p class="center"><button id="btn-rec-cancel" class="linkbtn" type="button" data-i18n="cancel"></button></p>
     </div>
     <div id="rec-done" class="card center" hidden>

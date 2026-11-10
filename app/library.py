@@ -159,6 +159,7 @@ def _recover_recording(d: Path, meta: dict) -> str:
         dur = recorder.repair_wav(wav)
     except (OSError, ValueError):
         return "failed"
+    recorder.repair_tracks(wav.parent)   # system.wav / mic.wav, when the recording had both sources
     if dur < 1.0:
         return "failed"
     meta["duration_s"] = round(dur, 1)

@@ -111,25 +111,43 @@
     },
     async export_day(day, fmt, ans, what) { return { path: "C:\\Users\\Sara\\Documents\\Arabic Lessons\\_days\\" + day + "-" + what + "." + fmt }; },
     async open_file() { return { path: "" }; },
-    // ---- microphone recording (simulated: ?rec=nomic or ?rec=denied make start fail) ----
+    // ---- recording (simulated). ?rec=nomic (no microphone), ?rec=noloopback (no computer-sound option, like macOS),
+    //      ?rec=nooutput (no speakers), ?rec=denied (microphone blocked), ?rec=silent (microphone silent),
+    //      ?rec=nosystem (computer sound silent while the microphone speaks), ?rec=switch (speakers change after 4 s) ----
     async list_input_devices() {
       if (new URLSearchParams(location.search).get("rec") === "nomic") return [];
       return [{ id: 0, name: "MacBook Microphone (built-in)", default: true }, { id: 3, name: "USB headset microphone", default: false }];
     },
+    async list_audio_sources() {
+      const q = new URLSearchParams(location.search).get("rec");
+      return { microphones: await this.list_input_devices(), loopback_available: q !== "noloopback",
+        outputs: q === "nooutput" || q === "noloopback" ? [] : [{ id: 7, name: "Speakers (Realtek Audio)", default: true }, { id: 9, name: "Headphones (USB)", default: false }] };
+    },
     async start_recording(o) {
-      if (new URLSearchParams(location.search).get("rec") === "denied")
-        throw new Error("MIC_DENIED: Windows may be blocking the microphone.");
+      const q = new URLSearchParams(location.search).get("rec");
+      const src = Object.assign({ system: q !== "noloopback", mic: true }, (o && o.sources) || {});
+      if (!src.system && !src.mic) throw new Error("NO_SOURCE: switch on at least one source");
+      if (src.system && q === "noloopback") throw new Error("LOOPBACK_UNAVAILABLE: not available");
+      if (src.system && q === "nooutput") throw new Error("NO_OUTPUT: no speakers");
+      if (src.mic && q === "denied") throw new Error("MIC_DENIED: Windows may be blocking the microphone.");
+      if (src.mic && q === "nomic") throw new Error("NO_MIC: No microphone was found.");
       if (rec) throw new Error("BUSY: a recording is already running");
       const id = "l" + (n++);
       lessons[id] = { meta: { id, title: "Recording " + new Date().toTimeString().slice(0, 5), date: new Date().toISOString(), duration_s: 0, status: "recording" }, segments: [], notes: { qa: [] } };
-      rec = { id, t: 0, paused: false, tick: 0 };
+      rec = { id, t: 0, paused: false, tick: 0, src };
+      const wave = (k, t) => Math.max(0, 0.02 + 0.06 * Math.abs(Math.sin(t / 3 + k)) * (0.5 + Math.random()));
       rec.timer = setInterval(() => {
         if (!rec.paused) rec.t += 0.1;
-        const level = rec.paused ? 0 : Math.max(0, 0.02 + 0.06 * Math.abs(Math.sin(rec.tick / 3)) * (0.5 + Math.random()));
+        const p = rec.paused;
+        const micSilent = q === "silent" && rec.t > 3, sysSilent = q === "nosystem" && rec.t > 3;
+        const lm = src.mic ? (p || micSilent ? 0 : wave(1, rec.tick)) : null, ls = src.system ? (p || sysSilent ? 0 : wave(0, rec.tick)) : null;
         rec.tick++;
-        const silent = new URLSearchParams(location.search).get("rec") === "silent" && rec.t > 3;
-        emit("record", { recording_id: id, lesson_id: id, state: rec.paused ? "paused" : "recording", elapsed_s: Math.round(rec.t * 10) / 10,
-          level: silent ? 0 : level, peak_clipping: false, silent, low_disk: false, free_disk_mb: 50000 });
+        const ev = { recording_id: id, lesson_id: id, state: p ? "paused" : "recording", elapsed_s: Math.round(rec.t * 10) / 10,
+          level: Math.max(lm || 0, ls || 0), level_system: ls, level_mic: lm, sources: src, peak_clipping: false,
+          silent: (!src.mic || micSilent) && (!src.system || sysSilent) && rec.t > 3, low_disk: false, free_disk_mb: 50000 };
+        if (src.system && src.mic && sysSilent && rec.t > 6) { ev.hint = "no_system_audio"; ev.hint_text = "No computer sound detected."; }
+        if (q === "switch" && src.system && !rec.switched && rec.t > 4) { rec.switched = true; ev.notice_key = "output_changed"; ev.notice = "The speakers or headphones changed."; }
+        emit("record", ev);
       }, 100);
       return { recording_id: id, lesson_id: id };
     },

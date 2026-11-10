@@ -1,4 +1,4 @@
-"""Entry point: pywebview window, or `--selftest <audio>` headless mode."""
+"""Entry point: pywebview window, or the headless modes `--selftest <audio>` and `--list-audio`."""
 from __future__ import annotations
 
 import argparse
@@ -77,6 +77,26 @@ def selftest(audio: str) -> int:
     return 0
 
 
+def list_audio() -> int:
+    """Headless: print the audio devices and whether the computer's sound can be recorded. Always exit 0:
+    CI uses it to check that the frozen exe imports the capture libraries and enumerates without crashing."""
+    from app import recorder
+    out: dict = {"ok": True, "microphones": [], "outputs": [], "loopback_available": False, "errors": []}
+    try:
+        out.update(recorder.list_audio_sources())
+    except Exception as e:  # noqa: BLE001
+        out["errors"].append(f"list_audio_sources: {e}")
+    for mod in ("sounddevice", "pyaudiowpatch"):   # prove the frozen exe contains the libraries
+        try:
+            __import__(mod)
+            out.setdefault("imports", {})[mod] = True
+        except Exception as e:  # noqa: BLE001
+            out.setdefault("imports", {})[mod] = False
+            out["errors"].append(f"import {mod}: {e}")
+    _emit_result(out)
+    return 0
+
+
 def run_gui() -> int:
     import webview
     from app.api import Api
@@ -94,8 +114,12 @@ def run_gui() -> int:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="ArabicLessonScribe")
     ap.add_argument("--selftest", metavar="AUDIO", help="headless: transcribe AUDIO with the tiny model, print JSON")
+    ap.add_argument("--list-audio", action="store_true",
+                    help="headless: print microphones, outputs and loopback_available as JSON, exit 0")
     args = ap.parse_args(argv)
     setup_logging()
+    if args.list_audio:
+        return list_audio()
     if args.selftest:
         return selftest(args.selftest)
     return run_gui()

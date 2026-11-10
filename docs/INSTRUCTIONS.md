@@ -41,11 +41,30 @@ Everything is pinned on purpose: faster-whisper 1.2.1, av below 16 (newer breaks
 - UI only, in a browser: `cd app/ui`, `python3 -m http.server 8000`, open `http://localhost:8000/index.html?mock=1`. This uses a fake backend with sample Arabic.
 - Use a throwaway data folder: set `ALS_DATA_DIR` and `ALS_LIBRARY_DIR` so your real lessons and models are not touched.
 
-### A7b. Recording from the microphone (maintainer notes)
-- `app/recorder.py` uses the `sounddevice` package (0.5.6; its Windows wheels include PortAudio). The WAV is written block by block from a worker thread with a bounded queue, header fixed every 2 s, `repair_wav` after a crash (lessons with status "recording" are repaired at startup and become "interrupted"). Events: `record`.
-- Tests use a fake input stream. Real microphone and the Windows privacy prompt are not testable on the Mac build machine; test on Windows: allow, deny (Settings, Privacy and security, Microphone), unplug a USB microphone mid-recording, and a 1 hour recording.
-- Loopback (online lessons): sounddevice 0.5.6 has no loopback option (its WasapiSettings only has exclusive, auto_convert, explicit_sample_format), because upstream PortAudio does not support WASAPI loopback. The practical route is the `pyaudiowpatch` fork (PortAudio with loopback devices), which is less maintained and needs real Windows tests with different output devices and sample rates, so it was not added.
-- PyInstaller: collect_all("sounddevice") plus the bundled data of `_sounddevice_data` (portaudio-binaries/libportaudio64bit.dll) and hiddenimports `_cffi_backend` and `sounddevice`.
+### A7b. Recording: microphone and computer sound (maintainer notes)
+- `app/recorder.py`. Microphone: `sounddevice` 0.5.6 (PortAudio inside its wheel), unchanged. Computer sound (WASAPI loopback): `PyAudioWPatch` 0.2.12.9 (Windows only, marker `sys_platform == "win32"` in requirements.txt and pyproject.toml). It was chosen over `soundcard` because it has a cp312 win_amd64 wheel (100 KB, no compiler), Apache-2.0, a release in 2026, no numpy dependency (soundcard needs cffi and numpy, and had numpy 2 breakage fixed only in recent releases), and loopback devices are plain input devices. Its PortAudio is separate from sounddevice's, so the two libraries do not interfere.
+- Microphone only: the original path (samples written as they arrive). With computer sound: `Mixer` places every block on a wall-clock timeline using its arrival time. WASAPI loopback delivers NO data while nothing plays, so gaps longer than 0.25 s are filled with silence and both tracks stay exactly as long as the clock. Output lags the clock by 0.3 s so late blocks fit, then is flushed at stop. Small clock drift is absorbed by that buffer (a fast source drops its oldest audio above 0.8 s buffered). Resampling to 16 kHz is `PolyResampler`, a numpy polyphase windowed-sinc (no scipy, no soxr, nothing added to the install). Mixing: each source at gain 0.5 when both are on (cannot clip), gain 1 when alone. Files: `recording.wav` (the mix, used for transcription) and, when both sources are on, `system.wav` and `mic.wav`, same length and timeline. All three are written incrementally with repaired headers after a crash.
+- Default output changed (headphones plugged in): checked every second; the stream is re-attached to the new default device and the UI is told (`notice_key: output_changed`). If that fails and the microphone is on, recording continues with the microphone and says so; if nothing is left, it stops, keeps the audio and sends a final event with `reason: device_lost`. An explicitly chosen output that disappears is retried the same way.
+- API: `list_audio_sources()` returns microphones, `loopback_available`, outputs. `start_recording({sources:{system,mic}, system_device_id?, device_id?})`; defaults on Windows are both on, elsewhere microphone only. Events `record` carry `level_system`, `level_mic`, `sources`, optional `hint: "no_system_audio"` (computer sound silent for 20 s while the microphone is heard), optional `notice`/`notice_key`. Error codes: NO_MIC, MIC_DENIED, MIC_ERROR, NO_OUTPUT, LOOPBACK_DENIED, LOOPBACK_ERROR, LOOPBACK_UNAVAILABLE, NO_SOURCE, DISK_FULL, BUSY.
+- There is no echo cancellation. With speakers and the microphone both on, the teacher can be recorded twice (the UI tip says to use headphones). Building acoustic echo cancellation is out of scope.
+- `ArabicLessonScribe.exe --list-audio` prints JSON (`microphones`, `outputs`, `loopback_available`, `imports`, `errors`) and exits 0 even without devices. In CI on the frozen exe check that `imports.sounddevice` and `imports.pyaudiowpatch` are both true. `python tools/check_loopback.py` on a Windows PC lists devices and records 5 s of system sound plus microphone to wav files and prints levels.
+- PyInstaller: `collect_all("pyaudiowpatch")` plus hidden imports `pyaudiowpatch` and `_portaudiowpatch` (the extension module is a top-level `_portaudiowpatch.cp312-win_amd64.pyd`, PortAudio is statically inside it, no extra DLL). The existing `sounddevice` entry stays.
+- Tests use fake streams and a fake pyaudiowpatch module (`tests/test_recorder.py`, `tests/test_loopback.py`); mixing, resampling, silence fill, a simulated 10 minute drift run, device change, crash recovery of the tracks and error messages are covered. The real loopback has NOT been run on the Mac build machine. It must be validated on Windows with the checklist below.
+
+#### Windows validation checklist for computer-sound recording
+Run on a real Windows 11 PC (and once on Windows 10 if you can). For each item record about 2 minutes, stop, and listen to `recording.wav`, `system.wav` and `mic.wav` in the lesson folder.
+- `ArabicLessonScribe.exe --list-audio` from a terminal: JSON with `imports.pyaudiowpatch: true`, `loopback_available: true`, your speakers in `outputs`.
+- `python tools/check_loopback.py` with music playing: system_rms above 0.002.
+- Zoom (desktop app): teacher voice in system.wav, your voice in mic.wav, both in recording.wav, both bars move.
+- Google Meet in Chrome, and WhatsApp Web (voice or video call): same checks.
+- Silence handling: pause the music for 30 s in the middle; the files must keep their length (compare with the clock) and the voices must stay in sync after the pause.
+- After 20 s with the lesson muted but the microphone heard: the "No computer sound detected" hint appears.
+- Bluetooth headset (as output and microphone): does it record, and how does it sound in call mode? Note the quality.
+- HDMI monitor with speakers as the default output: recorded?
+- Unplug the headphones (or plug them in) mid-recording: the app should say the speakers changed and keep recording, with audio from the new device afterwards, or stop safely with everything kept.
+- Another app with exclusive audio (for example a DAW or a game in exclusive mode): a clear LOOPBACK_DENIED message, no crash.
+- Microphone privacy off: a clear message with the Settings path; computer-sound-only still works.
+- One hour with both sources on: no growth in memory, files the same length, no drift between system.wav and mic.wav at the end.
 
 ### A8. Where things live
 - Code: `app/` (backend), `app/ui/` (screens), `app/prompts/` (the instructions given to Gemma, plain text files you can edit).
@@ -87,13 +106,14 @@ Everything is pinned on purpose: faster-whisper 1.2.1, av below 16 (newer breaks
 - Very short utterances (about one or two seconds) are the weak spot. They are given the language of their neighbours unless the engine is very sure.
 - The AI buttons (summary, words, outline, questions, recap) know which languages the lesson contains, and quote Hebrew in Hebrew letters and Arabic in Arabic letters. Vocabulary from the lesson keeps its language.
 
-### B3b. Record with the computer's microphone
-1. On the first screen click "Record a lesson", choose the microphone, click "Start recording".
-2. Put the computer near the teacher in a quiet room. The program saves the sound to disk while recording (about 115 MB per hour, 16 kHz mono) and keeps Windows awake.
-3. "Pause" and "Stop and save". Then choose "Transcribe now" (uses your language settings) or "Later". The recording is a part of today's lesson day.
-4. If the microphone is unplugged or the disk gets almost full, the recording stops safely and keeps what was recorded. After a crash, the unfinished recording shows up as an interrupted lesson (the file is repaired automatically) that you can transcribe.
-5. Windows blocks the microphone? Settings, Privacy and security, Microphone, switch on "Let desktop apps access your microphone".
-6. Online lessons (Zoom, Meet): the program records the microphone only, not the sound from the computer's speakers, so it hears the teacher poorly or not at all. Use the meeting program's own recording and open that file, or record with a phone next to the speaker.
+### B3b. Record an online lesson, or with the microphone
+1. Join the online lesson as usual (Zoom, Meet, Teams, WhatsApp Web...). Keep its sound on the computer's normal speakers or headphones.
+2. Open the program, click "Record a lesson". Leave both switches on: "Computer sound (your teacher in the online lesson)" and "My microphone (your own voice)". Click "Start recording".
+3. Two bars: the top one moves with the lesson's sound, the bottom one with your voice. If the top one never moves for 20 seconds the program warns you. Use headphones so your microphone does not pick up the teacher a second time (echo). Tell your teacher you are recording; some places require consent.
+4. "Pause" and "Stop and save". Then choose "Transcribe now" (uses your language settings) or "Later". The recording is a part of today's lesson day. The sound is saved to disk while recording (about 115 MB per hour per file, 16 kHz mono) and Windows is kept awake. The lesson folder also keeps `system.wav` and `mic.wav`.
+5. If the output is unplugged or the disk gets almost full, the recording stops safely and keeps what was recorded. After a crash the unfinished recording shows up as an interrupted lesson (the files are repaired automatically).
+6. Windows blocks the microphone? Settings, Privacy and security, Microphone, switch on "Let desktop apps access your microphone".
+7. Limits: virtual audio devices, a Bluetooth headset that switches to low-quality call mode, and apps that take exclusive control of the speakers can prevent or degrade the computer sound. In the same room as the teacher: switch "Computer sound" off and use only the microphone.
 
 ### B4. Lessons are grouped by day
 Every recording is filed under the day it was recorded. Two recordings on the same day belong to the same lesson day. You can open a day to read everything from that day in order. If a recording is filed under the wrong day, open it and choose "Change day".

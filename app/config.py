@@ -29,6 +29,16 @@ MODELS: dict[str, dict] = {
         "size_mb": 3100,
         "compute_type": "int8",
     },
+    # Optional, never the default. ivrit.ai Hebrew fine-tune of large-v3-turbo (Apache-2.0, not gated).
+    # Hebrew-only: it is much weaker on other languages, so the app only allows it when Hebrew is the
+    # single language of a lesson (see api.start_transcription).
+    "hebrew": {
+        "kind": "whisper",
+        "repo": "ivrit-ai/whisper-large-v3-turbo-ct2",
+        "size_mb": 1620,
+        "compute_type": "int8",
+        "only_languages": ["he"],
+    },
     "tiny-test": {
         "kind": "whisper",
         "repo": "Systran/faster-whisper-tiny",
@@ -52,7 +62,9 @@ WHISPER_REQUIRED = ["model.bin", "config.json", "tokenizer.json"]
 DEFAULT_SETTINGS = {
     "ui_lang": "en",
     "model": "fast",
-    "mixed_languages": False,
+    "spoken_languages": ["ar", "he"],   # languages used in the lessons (ar, he, en, fr)
+    "arabic_dialect": "msa",            # msa, levantine, egyptian, gulf, maghrebi (a prompt nudge only)
+    "mode": "auto",                     # "auto" = detect between spoken_languages, or one forced code
     "auto_recap": True,
 }
 
@@ -145,13 +157,27 @@ def _settings_file() -> Path:
     return data_dir() / "settings.json"
 
 
+def _clean(s: dict) -> dict:
+    from . import langs
+    s["spoken_languages"] = langs.norm_spoken(s.get("spoken_languages"))
+    s["arabic_dialect"] = langs.norm_dialect(s.get("arabic_dialect"))
+    s["mode"] = langs.norm_mode(s.get("mode"))
+    return s
+
+
 def load_settings() -> dict:
+    from . import langs
     s = dict(DEFAULT_SETTINGS)
     try:
-        s.update(json.loads(_settings_file().read_text(encoding="utf-8")))
+        raw = json.loads(_settings_file().read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            s.update(langs.migrate_settings(raw))
     except (OSError, ValueError):
         pass
-    return s
+    s.pop("mixed_languages", None)
+    if s.get("ui_lang") not in ("en", "fr"):  # Italian was dropped: such settings fall back to English
+        s["ui_lang"] = "en"
+    return _clean(s)
 
 
 def save_settings(updates: dict) -> dict:
@@ -159,5 +185,6 @@ def save_settings(updates: dict) -> dict:
     for k, v in (updates or {}).items():
         if k in DEFAULT_SETTINGS:
             s[k] = v
+    s = _clean(s)
     _settings_file().write_text(json.dumps(s, indent=2), encoding="utf-8")
     return s

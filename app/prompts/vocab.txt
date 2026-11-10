@@ -1,7 +1,8 @@
-You are helping a student of Arabic. From the lesson transcript below (automatic speech recognition, may contain errors), extract the useful vocabulary that the teacher explains or uses: words, phrases, and expressions worth learning. Skip very common function words.
+You are helping a student of these languages: {target}. From the lesson transcript below (automatic speech recognition, may contain errors), extract the useful vocabulary that the teacher explains or uses: words, phrases, and expressions worth learning. Skip very common function words.
 
 Reply with ONLY a JSON array, no other text. Each item must be an object with these keys:
-"arabic": the word or phrase in Arabic script, copied from the transcript,
+"arabic": the word or phrase in its own script (Arabic script for Arabic, Hebrew script for Hebrew), copied from the transcript,
+"lang": its language code: ar, he, en or it,
 "transliteration": Latin-letter transliteration,
 "meaning": the meaning in {lang_name},
 "note": a short note in {lang_name} (grammar, usage, or empty string).

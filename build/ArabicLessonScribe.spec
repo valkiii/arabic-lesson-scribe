@@ -9,7 +9,7 @@ ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))  # SPECPATH = build/
 
 datas, binaries, hiddenimports = [], [], []
 for pkg in ("ctranslate2", "faster_whisper", "onnxruntime", "av", "webview",
-            "clr_loader", "pythonnet"):
+            "clr_loader", "pythonnet", "sounddevice"):
     try:
         d, b, h = collect_all(pkg)
     except Exception as exc:  # package missing -> fail loudly for the core ones
@@ -23,7 +23,7 @@ for pkg in ("ctranslate2", "faster_whisper", "onnxruntime", "av", "webview",
 
 # pywebview talks to WebView2 through pythonnet (module name "clr")
 hiddenimports += ["clr", "clr_loader", "pythonnet", "webview.platforms.edgechromium",
-                  "webview.platforms.winforms", "tokenizers", "httpx", "h11", "certifi"]
+                  "webview.platforms.winforms", "tokenizers", "sounddevice", "_cffi_backend", "httpx", "h11", "certifi"]
 
 # App data: UI and prompts keep their relative layout so config.py can find them
 # next to the code (sys._MEIPASS/app/ui, sys._MEIPASS/app/prompts).

@@ -1,6 +1,6 @@
-Below is one part of an Arabic lesson transcript (automatic speech recognition, may contain errors). A student asks: "{question}"
+Below is one part of a language lesson transcript (target language(s): {target}) (automatic speech recognition, may contain errors). A student asks: "{question}"
 
-Copy out, in {lang_name}, only the facts from this part that are relevant to the question, as brief bullet points, keeping Arabic words in Arabic script. If nothing is relevant, reply exactly: NONE
+Copy out, in {lang_name}, only the facts from this part that are relevant to the question, as brief bullet points, keeping target-language words in their own script (Arabic or Hebrew). If nothing is relevant, reply exactly: NONE
 
 Transcript part:
 {text}

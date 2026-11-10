@@ -17,7 +17,7 @@ from typing import Callable
 
 import httpx
 
-from . import config
+from . import config, langs
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ CHUNK_TOKENS = 3000
 CHARS_PER_TOKEN = 2.0  # conservative: Arabic is token-heavy with Gemma (real ratio is about 2.5-3.5)
 N_CTX = 8192
 OUTLINE_CHUNK_TOKENS = 900  # ~2 minutes of speech; used when segments carry no timestamps
-LANG_NAMES = {"en": "English", "it": "Italian"}
+LANG_NAMES = {"en": "English", "fr": "French"}
 LABELS = ("vocabulary", "grammar", "dialogue", "explanation", "homework", "other")
 SAMPLING = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
 
@@ -34,8 +34,11 @@ def load_prompt(name: str) -> str:
     return (config.resource_dir() / "prompts" / f"{name}.txt").read_text(encoding="utf-8")
 
 
-def render(name: str, ui_lang: str = "en", **kw) -> str:
-    return load_prompt(name).format(lang_name=LANG_NAMES.get(ui_lang, "English"), **kw)
+def render(name: str, ui_lang: str = "en", languages: list[str] | None = None, **kw) -> str:
+    """Fill a prompt. {lang_name} is the language of the answer (UI language); {target} names the lesson's
+    language(s), for example "Arabic, Hebrew"."""
+    return load_prompt(name).format(lang_name=LANG_NAMES.get(ui_lang, "English"),
+                                    target=langs.target_names(languages or ["ar"]), **kw)
 
 
 def est_tokens(text: str) -> int:
@@ -112,8 +115,6 @@ def extract_json(text: str):
 
 
 # ---- day recap / quiz helpers ---------------------------------------------
-_DIAC = re.compile(r"[\u064B-\u0652\u0670\u0640]")
-_ARW = re.compile(r"[\u0600-\u06FF]+")
 RECAP_CAPS = {"taught": 10, "focus": 7, "vocab": 25, "grammar": 8, "homework": 8}
 QUIZ_TYPES = ("translate_from_arabic", "translate_to_arabic", "fill_blank", "multiple_choice", "grammar")
 _TYPE_ALIASES = {"translate_ar_to_native": "translate_from_arabic", "translate_arabic": "translate_from_arabic",
@@ -123,17 +124,14 @@ _TYPE_ALIASES = {"translate_ar_to_native": "translate_from_arabic", "translate_a
 
 
 def norm_ar(text: str) -> str:
-    t = _DIAC.sub("", str(text or ""))
-    return t.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").replace("ى", "ي").replace("ة", "ه")
+    """Comparison form of lesson text: Arabic without diacritics and letter variants, Hebrew without niqqud
+    and final letters (the name is historical: it handles both scripts)."""
+    return langs.norm_text(text)
 
 
-def in_transcript(arabic: str, norm_text: str) -> bool:
-    """True when every Arabic word (3+ letters, without the article) of `arabic` occurs in the transcript."""
-    for w in _ARW.findall(norm_ar(arabic)):
-        w = w[2:] if w.startswith("ال") and len(w) > 4 else w
-        if len(w) >= 3 and w not in norm_text:
-            return False
-    return True
+def in_transcript(term: str, norm_text: str) -> bool:
+    """True when every Arabic or Hebrew word of `term` occurs in the (normalised) transcript."""
+    return langs.in_transcript(term, norm_text)
 
 
 def extract_objects(text: str) -> list[dict]:
@@ -166,6 +164,15 @@ def parse_list(text: str, key_hint: str = "questions") -> list[dict]:
     return [o for o in objs if "question" in o]
 
 
+def vocab_lang(term: str, given, languages: list[str] | None = None) -> str:
+    """Language code of a vocabulary item: what the model said if it is a known code, else the script of the
+    term (Arabic or Hebrew), else the lesson's first language."""
+    g = str(given or "").strip().lower()
+    if g in langs.SUPPORTED:
+        return g
+    return langs.script_of(term) or (languages or ["ar"])[0]
+
+
 def _strs(v, cap: int) -> list[str]:
     if isinstance(v, str):
         v = [v]
@@ -190,7 +197,8 @@ def clean_recap(d: dict) -> dict:
         if ar in seen:
             continue
         seen.add(ar)
-        out["vocab"].append({"arabic": ar, "meaning": str(v.get("meaning", "") or "").strip(),
+        out["vocab"].append({"arabic": ar, "lang": vocab_lang(ar, v.get("lang")),
+                             "meaning": str(v.get("meaning", "") or "").strip(),
                              "transliteration": str(v.get("transliteration", "") or "").strip()})
     out["vocab"] = out["vocab"][:RECAP_CAPS["vocab"]]
     return out
@@ -354,17 +362,17 @@ class LlmClient:
     # tasks
     def summarize(self, segments: list[dict], ui_lang: str = "en",
                   progress: Callable[[float, str], None] | None = None,
-                  cancel: threading.Event | None = None) -> str:
+                  cancel: threading.Event | None = None, languages: list[str] | None = None) -> str:
         chunks = chunk_segments(segments)
         if not chunks:
             return ""
         if len(chunks) == 1:
-            return self.chat(render("summary", ui_lang, text=chunk_text(chunks[0])), cancel=cancel)
+            return self.chat(render("summary", ui_lang, languages=languages, text=chunk_text(chunks[0])), cancel=cancel)
         parts = []
         for i, c in enumerate(chunks):
             if progress:
                 progress(i / (len(chunks) + 1) * 100, f"Summarising part {i + 1} of {len(chunks)}")
-            parts.append(self.chat(render("summary", ui_lang, text=chunk_text(c)), 700, cancel))
+            parts.append(self.chat(render("summary", ui_lang, languages=languages, text=chunk_text(c)), 700, cancel))
         # reduce, recursively if the partial summaries are themselves too long
         while True:
             joined = "\n\n---\n\n".join(parts)
@@ -379,22 +387,22 @@ class LlmClient:
             groups.append(cur)
             if len(groups) == len(parts):
                 break
-            parts = [self.chat(render("summary_reduce", ui_lang, text="\n\n---\n\n".join(g)), 700, cancel)
+            parts = [self.chat(render("summary_reduce", ui_lang, languages=languages, text="\n\n---\n\n".join(g)), 700, cancel)
                      for g in groups]
         if progress:
             progress(95, "Combining")
-        return self.chat(render("summary_reduce", ui_lang, text=joined), cancel=cancel)
+        return self.chat(render("summary_reduce", ui_lang, languages=languages, text=joined), cancel=cancel)
 
     def vocab(self, segments: list[dict], ui_lang: str = "en",
               progress: Callable[[float, str], None] | None = None,
-              cancel: threading.Event | None = None) -> list[dict]:
+              cancel: threading.Event | None = None, languages: list[str] | None = None) -> list[dict]:
         chunks = chunk_segments(segments)
         items: list[dict] = []
         seen: set[str] = set()
         for i, c in enumerate(chunks):
             if progress:
                 progress(i / max(len(chunks), 1) * 100, f"Vocabulary {i + 1} of {len(chunks)}")
-            reply = self.chat(render("vocab", ui_lang, text=chunk_text(c)), 1500, cancel)
+            reply = self.chat(render("vocab", ui_lang, languages=languages, text=chunk_text(c)), 1500, cancel)
             try:
                 data = extract_json(reply)
             except ValueError:
@@ -409,13 +417,14 @@ class LlmClient:
                 if key in seen:
                     continue
                 seen.add(key)
-                items.append({"arabic": key, "transliteration": str(it.get("transliteration", "") or ""),
+                items.append({"arabic": key, "lang": vocab_lang(key, it.get("lang"), languages),
+                              "transliteration": str(it.get("transliteration", "") or ""),
                               "meaning": str(it.get("meaning", "") or ""), "note": str(it.get("note", "") or "")})
         return items
 
     def classify(self, segments: list[dict], ui_lang: str = "en", window_s: float = 120.0,
                  progress: Callable[[float, str], None] | None = None,
-                 cancel: threading.Event | None = None) -> list[dict]:
+                 cancel: threading.Event | None = None, languages: list[str] | None = None) -> list[dict]:
         windows = chunk_by_time(segments, window_s)
         out = []
         idx = 0  # index of the window's first segment (lets the UI jump even without timestamps)
@@ -424,7 +433,7 @@ class LlmClient:
                 progress(i / max(len(windows), 1) * 100, f"Outline {i + 1} of {len(windows)}")
             text = chunk_text(w)
             max_chars = int(CHUNK_TOKENS * CHARS_PER_TOKEN)
-            reply = self.chat(render("classify", ui_lang, text=text[:max_chars]), 200, cancel)
+            reply = self.chat(render("classify", ui_lang, languages=languages, text=text[:max_chars]), 200, cancel)
             label, topic = "other", ""
             try:
                 d = extract_json(reply)
@@ -442,22 +451,22 @@ class LlmClient:
 
     def ask(self, segments: list[dict], question: str, ui_lang: str = "en",
             progress: Callable[[float, str], None] | None = None,
-            cancel: threading.Event | None = None) -> str:
+            cancel: threading.Event | None = None, languages: list[str] | None = None) -> str:
         chunks = chunk_segments(segments)
         if len(chunks) <= 1:
-            return self.chat(render("qa", ui_lang, text=chunk_text(chunks[0]) if chunks else "",
+            return self.chat(render("qa", ui_lang, languages=languages, text=chunk_text(chunks[0]) if chunks else "",
                                     question=question), cancel=cancel)
         notes = []
         for i, c in enumerate(chunks):
             if progress:
                 progress(i / (len(chunks) + 1) * 100, f"Reading part {i + 1} of {len(chunks)}")
-            r = self.chat(render("qa_extract", ui_lang, text=chunk_text(c), question=question), 500, cancel)
+            r = self.chat(render("qa_extract", ui_lang, languages=languages, text=chunk_text(c), question=question), 500, cancel)
             if r.strip().upper().strip(".") != "NONE" and r.strip():
                 notes.append(r)
         # keep the final context within budget
         text = "\n\n".join(notes) or "(nothing relevant found)"
         text = text[: int(CHUNK_TOKENS * CHARS_PER_TOKEN)]
-        return self.chat(render("qa", ui_lang, text=text, question=question), cancel=cancel)
+        return self.chat(render("qa", ui_lang, languages=languages, text=text, question=question), cancel=cancel)
 
     # ---- day recap and quiz -------------------------------------------------
     def _chat_json(self, prompt: str, max_tokens: int, cancel) -> dict:
@@ -474,7 +483,7 @@ class LlmClient:
 
     def day_recap(self, parts: list[list[dict]], ui_lang: str = "en",
                   progress: Callable[[float, str], None] | None = None,
-                  cancel: threading.Event | None = None) -> dict:
+                  cancel: threading.Event | None = None, languages: list[str] | None = None) -> dict:
         """Map-reduce over the transcripts of all parts of a day. Returns the cleaned recap schema."""
         chunks: list[list[dict]] = []
         for segs in parts:  # chunk each part on its own so a chunk never straddles two recordings
@@ -483,13 +492,13 @@ class LlmClient:
             raise ValueError("Nothing to summarise")
         norm_all = norm_ar(" ".join(chunk_text(c) for c in chunks))
         if len(chunks) == 1:
-            res = clean_recap(self._chat_json(render("day_recap", ui_lang, text=chunk_text(chunks[0])), 1500, cancel))
+            res = clean_recap(self._chat_json(render("day_recap", ui_lang, languages=languages, text=chunk_text(chunks[0])), 1500, cancel))
         else:
             notes = []
             for i, c in enumerate(chunks):
                 if progress:
                     progress(i / (len(chunks) + 2) * 100, f"Reading part {i + 1} of {len(chunks)}")
-                notes.append(clean_recap(self._chat_json(render("day_recap", ui_lang, text=chunk_text(c)), 1200, cancel)))
+                notes.append(clean_recap(self._chat_json(render("day_recap", ui_lang, languages=languages, text=chunk_text(c)), 1200, cancel)))
             level = 0
             while len(notes) > 1:
                 level += 1
@@ -506,7 +515,7 @@ class LlmClient:
                 if progress:
                     progress(80 + min(level, 3) * 5, "Combining")
                 notes = [clean_recap(self._chat_json(
-                    render("day_recap_reduce", ui_lang, text=compact_json(g)), 1800, cancel)) if len(g) > 1 else g[0]
+                    render("day_recap_reduce", ui_lang, languages=languages, text=compact_json(g)), 1800, cancel)) if len(g) > 1 else g[0]
                     for g in groups]
             res = notes[0]
             if len(chunks) > 1 and progress:
@@ -517,7 +526,8 @@ class LlmClient:
 
     def day_quiz(self, recap: dict, norm_text: str, ui_lang: str = "en", previous: list[str] | None = None,
                  count: int = 10, progress: Callable[[float, str], None] | None = None,
-                 cancel: threading.Event | None = None, max_calls: int = 4) -> list[dict]:
+                 cancel: threading.Event | None = None, max_calls: int = 4,
+                 languages: list[str] | None = None) -> list[dict]:
         """Exactly `count` validated, de-duplicated questions (raises if the model cannot deliver)."""
         material = _fit({k: recap.get(k) for k in ("topic", "taught", "focus", "vocab", "grammar") if recap.get(k)}, 2400)
         seen = {question_key(p) for p in (previous or [])}
@@ -538,8 +548,8 @@ class LlmClient:
                         break
                     lines.append("- " + a)
                     total += len(a) + 2
-                prev_txt = render("quiz_avoid", ui_lang, previous="\n".join(lines))
-            prompt = render("quiz", ui_lang, count=need if call else count, avoid=prev_txt, text=material)
+                prev_txt = render("quiz_avoid", ui_lang, languages=languages, previous="\n".join(lines))
+            prompt = render("quiz", ui_lang, languages=languages, count=need if call else count, avoid=prev_txt, text=material)
             reply = self.chat(prompt, 2600, cancel)
             for raw in parse_list(reply):
                 q = validate_question(raw, norm_text)

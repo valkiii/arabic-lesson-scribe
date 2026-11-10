@@ -86,7 +86,7 @@ def test_chunk_size_bound_for_12k_arabic_words():
         body = llm.chunk_text(c)
         # at 2 chars/token the estimate is conservative; even at 1.5 chars/token real use fits n_ctx
         for name, out in out_budget.items():
-            prompt = llm.render(name, "it", text=body, question="ما معنى الكلمة؟")
+            prompt = llm.render(name, "fr", text=body, question="ما معنى الكلمة؟")
             assert llm.est_tokens(prompt) + out < llm.N_CTX
             assert len(prompt) / 1.5 + out < llm.N_CTX
     assert max(llm.est_tokens(llm.chunk_text(c)) for c in chunks) <= llm.CHUNK_TOKENS + 5

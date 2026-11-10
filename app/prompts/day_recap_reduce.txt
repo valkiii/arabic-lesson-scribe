@@ -1,10 +1,10 @@
-Below are JSON notes made from consecutive parts of ONE day of Arabic lessons. Merge them into a single set of notes for the whole day, in {lang_name}. Use only what is in the notes; do not add anything. Remove repetition. Keep Arabic words in Arabic script exactly as written. Keep homework only if it appears in the notes.
+Below are JSON notes made from consecutive parts of ONE day of language lessons (target language(s): {target}). Merge them into a single set of notes for the whole day, in {lang_name}. Use only what is in the notes; do not add anything. Remove repetition. Keep target-language words in their own script (Arabic or Hebrew) exactly as written. Keep homework only if it appears in the notes.
 
 Reply with ONLY a JSON object, no other text, with these keys:
 "topic": 1 to 2 sentences on the topic of the whole day,
 "taught": at most 10 short bullet strings,
 "focus": 4 to 7 concrete, checkable points the student should have learned today (like "You can use X to say Y"),
-"vocab": at most 25 objects {{"arabic": "...", "meaning": "...", "transliteration": "..."}}, the most important ones,
+"vocab": at most 25 objects {{"arabic": "...", "lang": "ar", "meaning": "...", "transliteration": "..."}} ("arabic" holds the word in its own script, whichever language it is; "lang" is its code: ar, he, en or it), the most important ones,
 "grammar": at most 8 short strings,
 "homework": a list of strings (empty if none was mentioned),
 "unclear_note": an empty string, or one sentence about unclear parts.

@@ -41,10 +41,22 @@ Everything is pinned on purpose: faster-whisper 1.2.1, av below 16 (newer breaks
 - UI only, in a browser: `cd app/ui`, `python3 -m http.server 8000`, open `http://localhost:8000/index.html?mock=1`. This uses a fake backend with sample Arabic.
 - Use a throwaway data folder: set `ALS_DATA_DIR` and `ALS_LIBRARY_DIR` so your real lessons and models are not touched.
 
+### A7b. Recording from the microphone (maintainer notes)
+- `app/recorder.py` uses the `sounddevice` package (0.5.6; its Windows wheels include PortAudio). The WAV is written block by block from a worker thread with a bounded queue, header fixed every 2 s, `repair_wav` after a crash (lessons with status "recording" are repaired at startup and become "interrupted"). Events: `record`.
+- Tests use a fake input stream. Real microphone and the Windows privacy prompt are not testable on the Mac build machine; test on Windows: allow, deny (Settings, Privacy and security, Microphone), unplug a USB microphone mid-recording, and a 1 hour recording.
+- Loopback (online lessons): sounddevice 0.5.6 has no loopback option (its WasapiSettings only has exclusive, auto_convert, explicit_sample_format), because upstream PortAudio does not support WASAPI loopback. The practical route is the `pyaudiowpatch` fork (PortAudio with loopback devices), which is less maintained and needs real Windows tests with different output devices and sample rates, so it was not added.
+- PyInstaller: collect_all("sounddevice") plus the bundled data of `_sounddevice_data` (portaudio-binaries/libportaudio64bit.dll) and hiddenimports `_cffi_backend` and `sounddevice`.
+
 ### A8. Where things live
 - Code: `app/` (backend), `app/ui/` (screens), `app/prompts/` (the instructions given to Gemma, plain text files you can edit).
 - Packaging: `build/` and `.github/workflows/build.yml`.
 - Design contract: `SPEC.md`.
+
+### A9. Languages, dialects and models (research notes, 2026-11-10)
+- Per-chunk language detection is our own: VAD windows, `detect_language`, restricted to the ticked languages, smoothed, then forced-language transcription (details in SPEC.md, "Addendum: languages"). One language ticked skips all of it.
+- Hebrew: `ivrit-ai/whisper-large-v3-turbo-ct2` (Apache-2.0, not gated, CTranslate2, 1618 MB model.bin, 307,639 downloads all time, 46,770 in the last 30 days, trained on about 388 hours of Hebrew). Added as the opt-in model key `hebrew`, allowed only when Hebrew is the only lesson language, because one-language fine-tunes get worse at other languages. Not verified here: its real Hebrew quality (the 480 MB multilingual test model was used for all checks).
+- Levantine: the only CTranslate2 candidate found was `HebArabNlpProject/WhisperLevantine` (Apache-2.0, not gated, large-v3 fine-tune on about 1,200 hours of Israeli-Arabic, reported WER 33 percent, 6,175 MB so not quantised, 14,590 downloads all time, 96 in the last 30 days, thin model card). Other Levantine fine-tunes (otozz, Laith05 and similar) are small PyTorch models with under 40 downloads a month and no CT2 files. Not added: heavy, narrow (Israeli Arabic), unproven, and a fine-tune would hurt mixed lessons. General Arabic CT2 fine-tunes exist (for example Omar10lfc/whisper-large-v3-turbo-arabic-ct2-int8, 814 MB, Apache-2.0, about 220 downloads a month) but are small community uploads and not dialect specific. Revisit if a well-used Levantine CT2 model appears.
+- Speed: see the measured numbers in the report for this change; automatic detection costs extra encoder passes (one per 30 s block when the audio is clearly one language, one per speech window otherwise).
 
 ## Part B. For the person using the app (send this part)
 
@@ -64,7 +76,24 @@ Everything is pinned on purpose: faster-whisper 1.2.1, av below 16 (newer breaks
 2. First time only: the app downloads the speech model (about 1.6 GB). Keep the app open and the computer connected to the internet. If the connection drops, just reopen and click again; it continues.
 3. The Arabic text appears on screen while it works. A one-hour lesson can take 40 to 90 minutes. Keep the laptop plugged in. You can leave it and do something else. The computer will not go to sleep while it works.
 4. If you close the app or it stops, open the lesson and click "Continue transcription".
-5. If the teacher mixes Arabic with English or Italian, turn on "Lesson mixes languages".
+5. Under the big box, tick the languages of your lessons (see B3a).
+
+### B3a. Languages, dialect and mixed lessons
+- **Languages in my lessons**: tick Arabic, Hebrew, English and/or French. Only the ticked languages can appear in the text.
+- With two or more ticked and "Detect automatically between these" on, every stretch of speech is assigned to one of your ticked languages. A Hebrew question in the middle of an Arabic lesson is written in Hebrew. Where the language changes, a small tag (AR, HE, EN, FR) is shown in the transcript. With one language ticked there is no detection and no tag.
+- Switch "Detect automatically" off to force the first ticked language for the whole recording.
+- **Arabic dialect** (shown when Arabic is ticked): Levantine, Egyptian, Gulf, Maghrebi or Standard. Be aware that Whisper has no dialect switch. The app puts a short sentence in that dialect in front of the audio as a hint, which nudges spelling and word choice. It does not teach the engine a dialect it does not know.
+- A language that is not ticked can never be chosen, so speech in it is written wrongly as one of the ticked languages (a nonsense transcription) instead of being labelled correctly. If in doubt, tick it.
+- Very short utterances (about one or two seconds) are the weak spot. They are given the language of their neighbours unless the engine is very sure.
+- The AI buttons (summary, words, outline, questions, recap) know which languages the lesson contains, and quote Hebrew in Hebrew letters and Arabic in Arabic letters. Vocabulary from the lesson keeps its language.
+
+### B3b. Record with the computer's microphone
+1. On the first screen click "Record a lesson", choose the microphone, click "Start recording".
+2. Put the computer near the teacher in a quiet room. The program saves the sound to disk while recording (about 115 MB per hour, 16 kHz mono) and keeps Windows awake.
+3. "Pause" and "Stop and save". Then choose "Transcribe now" (uses your language settings) or "Later". The recording is a part of today's lesson day.
+4. If the microphone is unplugged or the disk gets almost full, the recording stops safely and keeps what was recorded. After a crash, the unfinished recording shows up as an interrupted lesson (the file is repaired automatically) that you can transcribe.
+5. Windows blocks the microphone? Settings, Privacy and security, Microphone, switch on "Let desktop apps access your microphone".
+6. Online lessons (Zoom, Meet): the program records the microphone only, not the sound from the computer's speakers, so it hears the teacher poorly or not at all. Use the meeting program's own recording and open that file, or record with a phone next to the speaker.
 
 ### B4. Lessons are grouped by day
 Every recording is filed under the day it was recorded. Two recordings on the same day belong to the same lesson day. You can open a day to read everything from that day in order. If a recording is filed under the wrong day, open it and choose "Change day".
@@ -103,7 +132,7 @@ In the folder Documents, then "Arabic Lessons". Each recording has its own folde
 - Not enough space: you need about 5 GB free. Models are in `%LOCALAPPDATA%\ArabicLessonScribe\models` and can be deleted; the app downloads them again when needed.
 - Transcription is very slow: use the default model, plug in the laptop, close other heavy programs. Do not choose the "best" model on a laptop without a strong CPU.
 - The app uses a lot of memory on a long recording: close other programs, or split the recording into two files.
-- The text is empty or wrong: check that the recording is audible; try "Lesson mixes languages".
+- The text is empty or wrong: check that the recording is audible; check that every language of the lesson is ticked under "Languages in my lessons".
 - The window is blank or says WebView2 is missing: the installer normally adds it. Install "Microsoft Edge WebView2 Runtime" from Microsoft and reopen.
 - The assistant does not answer or crashes: it needs about 4 GB of free memory. Close other programs and retry. The log file path is shown in the app settings.
 - Reporting a problem: send the log file from `%LOCALAPPDATA%\ArabicLessonScribe\logs`.

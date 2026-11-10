@@ -39,7 +39,59 @@ After that, no internet is needed. You can leave the window open while it downlo
 3. Wait. The words appear as it goes, and the program shows how long it has been running and, after
    a few minutes, roughly how much is left. Keep the program open. While it works, the program asks
    Windows not to go to sleep (the screen may still turn off).
-4. If the teacher also explains in English or Italian, tick **Lesson mixes languages**.
+4. Under the box, check **Languages in my lessons** (see the next section).
+
+### Choosing the languages of your lessons
+
+Tick every language that is spoken in your lessons: Arabic, Hebrew, English, French. The program
+will only ever write in the languages you tick, so it cannot suddenly decide that a sentence is
+Turkish or French.
+
+- **Only one language ticked**: everything is written in that language. This is the fastest.
+- **Two or more ticked, "Detect automatically between these" on** (the default): the program listens to
+  the recording piece by piece and decides, for each piece, which of your languages it is. So when
+  you ask your teacher a question in Hebrew in the middle of an Arabic lesson, that question is
+  written in Hebrew, and the English explanation in English. Each piece is shown in the right
+  direction, and a small tag (AR, HE, EN, FR) marks where the language changes.
+- **Detect automatically switched off**: the whole recording is written in the first language you
+  ticked. Use it when you know the lesson is in one language only.
+- **Arabic dialect**: appears when Arabic is ticked. Choose Levantine, Egyptian, Gulf or Maghrebi if your
+  teacher speaks that dialect. Please read this honestly: the speech engine (Whisper) has no dialect
+  setting. The choice only gives it a short example sentence in that dialect, which nudges how words
+  are spelled and which words it prefers (for example "شو" and "هلق" instead of the formal "ماذا"
+  and "الآن"). It does not make the engine understand a dialect better, so heavy dialect speech will
+  still contain mistakes.
+- Hebrew only: a **Hebrew-specialised speech model** is offered as an extra download (about 1.6 GB).
+  It is usually better for Hebrew, but worse for everything else, which is why it is only available when
+  Hebrew is the only language you ticked.
+
+Things to know: a very short phrase (about a second) can be given the wrong language. When the program
+is not sure about a short piece, it takes the language of the pieces around it. If a piece is in a
+language you did not tick, it is written in one of your ticked languages anyway, usually as nonsense.
+Tick every language the teacher really uses. With detection on, transcribing takes longer than with a
+single language (see the measured numbers in the full instructions).
+
+### Recording the lesson on this computer
+
+Instead of a phone, you can record with the computer's own microphone. On the first screen click
+**Record a lesson** (next to the big box), pick the microphone, and click **Start recording**. The
+big clock shows how long you have been recording, and the bar moves when the microphone hears sound.
+
+- Put the computer close to the teacher, in a quiet room. Keep the program open while recording.
+- **Pause** and **Stop and save** are on the screen. The recording is saved to your disk as it goes, so
+  a two-hour lesson takes about 230 MB and the program does not fill up the computer's memory.
+- When you stop, choose **Transcribe now** or **Later**. A recording you saved for later is in your lesson
+  list, under today's date, and opens with a **Transcribe** button.
+- If the bar does not move for 20 seconds, the program says "No sound detected". Check the microphone.
+- If the microphone is unplugged, or the disk is almost full (less than 100 MB), the recording stops
+  and keeps everything recorded so far. If the program or the computer crashes during a recording, the
+  next time you open the program the unfinished recording is in your list as "Interrupted" and can be
+  transcribed.
+- If Windows says the microphone is blocked: Settings, Privacy and security, Microphone, and switch on
+  **Let desktop apps access your microphone**.
+- This records what the microphone hears. It cannot record the sound of an online lesson (Zoom, Meet)
+  that plays through the computer's speakers; for that, record on your phone near the speaker, or use
+  the recording function of the meeting program and open that file.
 
 ### A one-hour recording
 

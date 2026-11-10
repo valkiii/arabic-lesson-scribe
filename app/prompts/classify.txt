@@ -1,4 +1,4 @@
-Below is one short part of an Arabic lesson transcript (automatic speech recognition, may contain errors). Classify what the teacher is doing in this part. Choose exactly one label from: vocabulary, grammar, dialogue, explanation, homework, other.
+Below is one short part of a language lesson transcript (target language(s): {target}) (automatic speech recognition, may contain errors). Classify what the teacher is doing in this part. Choose exactly one label from: vocabulary, grammar, dialogue, explanation, homework, other.
 
 Reply with ONLY a JSON object, no other text, in this form:
 {{"label": "<one label>", "topic": "<a few words in {lang_name} describing the content>"}}

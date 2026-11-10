@@ -6,7 +6,29 @@ const STRINGS = {
     app_name: "Arabic Lesson Scribe",
     drop_title: "Drop a recording here or click to choose",
     drop_hint: "mp3, m4a, wav, ogg, opus, amr, 3gp, mp4, flac",
-    opt_mixed: "Lesson mixes languages",
+    rec_btn: "Record a lesson", rec_btn_hint: "with this computer's microphone", rec_title: "Record a lesson",
+    rec_device: "Microphone", rec_start: "Start recording", rec_pause: "Pause", rec_resume: "Resume", rec_stop: "Stop and save",
+    rec_tip: "Put the computer close to the teacher, in a quiet room. Keep this window open while recording.",
+    rec_state_ready: "Ready", rec_state_recording: "Recording", rec_state_paused: "Paused",
+    rec_silent: "No sound detected. Check your microphone.", rec_clip: "The sound is too loud. Move the microphone away or lower its volume.",
+    rec_low_disk: "The disk is getting full. Recording stops automatically when almost no space is left.",
+    rec_done_title: "Recording saved", rec_done_len: "{t} recorded. It is saved as a part of today's lessons.",
+    rec_now: "Transcribe now", rec_later: "Later", rec_confirm_discard: "Discard this recording? It cannot be recovered.",
+    rec_lost: "The microphone stopped (unplugged or switched off?). Everything recorded so far is saved.",
+    rec_disk_stopped: "The disk is almost full, so the recording was stopped safely. Everything recorded so far is saved.",
+    rec_err_NO_MIC: "No microphone was found. Plug one in or switch it on, then try again.",
+    rec_err_MIC_DENIED: "Windows is not allowing this app to use the microphone. Open Settings, Privacy and security, Microphone, and switch on 'Let desktop apps access your microphone'.",
+    rec_err_DISK_FULL: "There is not enough free disk space to record. Free some space and try again.",
+    rec_err_MIC_ERROR: "The microphone could not be started.",
+    rec_not_transcribed: "This recording has not been transcribed yet.", rec_transcribe: "Transcribe", status_recorded: "Recorded",
+    lang_title: "Languages in my lessons",
+    lang_ar: "Arabic", lang_he: "Hebrew", lang_en: "English", lang_fr: "French",
+    dialect_label: "Arabic dialect",
+    dia_msa: "Standard Arabic (MSA)", dia_levantine: "Levantine", dia_egyptian: "Egyptian", dia_gulf: "Gulf", dia_maghrebi: "Maghrebi",
+    dialect_note: "Whisper does not have a dialect switch. This only nudges the spelling and word choice; recognition of heavy dialect stays imperfect.",
+    opt_detect: "Detect automatically between these",
+    forced_hint: "Everything will be written as {lang}. Other languages in the recording will be lost or garbled.",
+    opt_hebmodel: "Use the Hebrew-specialised speech model (extra download, about 1.6 GB)",
     opt_best: "Best quality (slower)",
     lessons_title: "Your lessons",
     lessons_empty: "No lessons yet. Your transcripts will appear here.",
@@ -77,7 +99,7 @@ const STRINGS = {
     quiz_more: "New set of 10", quiz_working: "Writing questions", quiz_none: "No questions yet.",
     show_answer: "Show answer", hide_answer: "Hide answer", right: "I got it right", wrong: "I got it wrong",
     score: "Score: {r} / 10 ({m} marked)", q_answer: "Answer", q_source: "From",
-    qtype_translate_from_arabic: "Translate into your language", qtype_translate_to_arabic: "Translate into Arabic",
+    qtype_translate_from_arabic: "Translate into your language", qtype_translate_to_arabic: "Translate into the lesson language",
     qtype_fill_blank: "Fill in the blank", qtype_multiple_choice: "Multiple choice", qtype_grammar: "Grammar and usage",
     chip_offline: "Works offline",
     untitled: "Untitled lesson",
@@ -86,41 +108,33 @@ const STRINGS = {
     kind_vocabulary: "vocabulary", kind_grammar: "grammar", kind_dialogue: "dialogue",
     kind_explanation: "explanation", kind_homework: "homework", kind_other: "other"
   },
-  it: { // stub: missing keys fall back to English
+  fr: { // partial stub: missing keys fall back to English
     app_name: "Arabic Lesson Scribe",
-    drop_title: "Trascina qui una registrazione o clicca per sceglierla",
-    opt_mixed: "La lezione mescola più lingue",
-    opt_best: "Qualità migliore (più lenta)",
-    lessons_title: "Le tue lezioni",
-    import_q: "Hai già una trascrizione?", import_link: "Aprila",
-    import_ok: "Trascrizione aperta", status_imported: "Trascrizione importata", status_interrupted: "Interrotta", status_failed: "Non riuscita",
-    resume: "Continua la trascrizione",
-    resume_msg: "La trascrizione si è fermata a {at} su {total}. Il testo finora è salvato.",
-    resume_msg_nototal: "La trascrizione si è fermata a {at}. Il testo finora è salvato.",
-    resume_none: "La trascrizione non è stata completata. Puoi ricominciarla dall'inizio.",
-    resume_missing: "La registrazione originale non è stata trovata: ti verrà chiesto di sceglierla di nuovo.",
-    elapsed: "Trascorso {t}", eta: "ancora circa {m} min", eta_s: "meno di un minuto", eta_h: "ancora circa {h} h {m} min",
-    opt_auto: "Crea il riepilogo del giorno automaticamente",
-    open_day: "Tutta la giornata", change_day: "Cambia giorno", day_changed: "Spostata in un altro giorno",
-    day_parts_n: "{n} registrazioni", day_part_1: "1 registrazione",
-    recap: "Riepilogo del giorno", quiz: "Domande di pratica", save_recap: "Salva riepilogo",
-    print_ans: "Stampa il quiz (con risposte)", print_noans: "Stampa il quiz (senza risposte)",
-    saved_to: "Salvato: {p}", tag_recap: "Riepilogo pronto", open_part: "Apri questa registrazione",
-    recap_make: "Crea il riepilogo di oggi", recap_make_dl: "Crea il riepilogo di oggi (scarica l'assistente, 2,8 GB, una volta)",
-    recap_stale: "Una registrazione è stata aggiunta o spostata dopo questo riepilogo.", recap_update: "Aggiorna riepilogo",
-    recap_working: "Scrivo il riepilogo", recap_none: "Ancora nessun riepilogo.",
-    rc_taught: "Cosa è stato spiegato", rc_focus: "Punti chiave: cosa dovresti aver imparato oggi",
-    rc_vocab: "Vocabolario chiave", rc_grammar: "Punti di grammatica", rc_homework: "Compiti o da ripassare", rc_note: "Nota",
-    quiz_make: "Crea 10 domande di pratica", quiz_make_dl: "Crea 10 domande di pratica (scarica l'assistente, 2,8 GB, una volta)",
-    quiz_more: "Nuove 10 domande", quiz_working: "Scrivo le domande", quiz_none: "Ancora nessuna domanda.",
-    show_answer: "Mostra la risposta", hide_answer: "Nascondi la risposta", right: "Ho risposto bene", wrong: "Ho risposto male",
-    score: "Punteggio: {r} / 10 ({m} segnate)", q_answer: "Risposta", q_source: "Da",
-    qtype_translate_from_arabic: "Traduci nella tua lingua", qtype_translate_to_arabic: "Traduci in arabo",
-    qtype_fill_blank: "Completa la frase", qtype_multiple_choice: "Scelta multipla", qtype_grammar: "Grammatica e uso",
-    cancel: "Annulla", back: "Indietro", rename: "Rinomina",
-    summary: "Riassunto", vocab: "Vocabolario", outline: "Schema", ask: "Fai una domanda",
-    copy: "Copia trascrizione", export: "Esporta", open_folder: "Apri cartella", delete: "Elimina lezione",
-    ai_warning: "Le risposte dell'IA possono essere sbagliate. La trascrizione è la fonte affidabile."
+    drop_title: "Déposez un enregistrement ici ou cliquez pour le choisir",
+    rec_btn: "Enregistrer un cours", rec_btn_hint: "avec le microphone de cet ordinateur", rec_title: "Enregistrer un cours",
+    rec_device: "Microphone", rec_start: "Démarrer l'enregistrement", rec_pause: "Pause", rec_resume: "Reprendre", rec_stop: "Arrêter et enregistrer",
+    rec_tip: "Placez l'ordinateur près de l'enseignant, dans une pièce calme. Gardez cette fenêtre ouverte pendant l'enregistrement.",
+    rec_state_ready: "Prêt", rec_state_recording: "Enregistrement", rec_state_paused: "En pause",
+    rec_silent: "Aucun son détecté. Vérifiez votre microphone.",
+    rec_done_title: "Enregistrement sauvegardé", rec_now: "Transcrire maintenant", rec_later: "Plus tard",
+    rec_err_NO_MIC: "Aucun microphone trouvé. Branchez-en un ou allumez-le, puis réessayez.",
+    rec_err_MIC_DENIED: "Windows n'autorise pas cette application à utiliser le microphone. Ouvrez Paramètres, Confidentialité et sécurité, Microphone, et activez « Autoriser les applications de bureau à accéder à votre microphone ».",
+    status_recorded: "Enregistré",
+    lang_title: "Langues de mes cours",
+    lang_ar: "Arabe", lang_he: "Hébreu", lang_en: "Anglais", lang_fr: "Français",
+    dialect_label: "Dialecte arabe",
+    dia_msa: "Arabe standard (MSA)", dia_levantine: "Levantin", dia_egyptian: "Égyptien", dia_gulf: "Du Golfe", dia_maghrebi: "Maghrébin",
+    dialect_note: "Whisper n'a pas de réglage de dialecte. Ce choix oriente seulement l'orthographe et le choix des mots ; les dialectes marqués restent imparfaitement reconnus.",
+    opt_detect: "Détecter automatiquement entre celles-ci",
+    forced_hint: "Tout sera écrit en {lang}. Les autres langues de l'enregistrement seront perdues ou mal écrites.",
+    opt_hebmodel: "Utiliser le modèle vocal spécialisé pour l'hébreu (téléchargement supplémentaire, environ 1,6 Go)",
+    opt_best: "Meilleure qualité (plus lent)",
+    lessons_title: "Vos cours",
+    cancel: "Annuler", back: "Retour", rename: "Renommer",
+    summary: "Résumé", vocab: "Vocabulaire", outline: "Plan", ask: "Poser une question",
+    copy: "Copier la transcription", export: "Exporter", open_folder: "Ouvrir le dossier", delete: "Supprimer le cours",
+    ai_warning: "Les réponses de l'IA peuvent être fausses. La transcription fait foi.",
+    qtype_translate_to_arabic: "Traduire dans la langue du cours"
   }
 };
 let LANG = "en";
@@ -159,8 +173,8 @@ async function call(name, ...args) {
 }
 function show(view) {
   S.view = view;
-  for (const v of ["home", "working", "lesson", "day"]) $("view-" + v).hidden = v !== view;
-  const h = { home: "home-title", working: "work-title", lesson: "lesson-title", day: "day-title" }[view];
+  for (const v of ["home", "record", "working", "lesson", "day"]) $("view-" + v).hidden = v !== view;
+  const h = { home: "home-title", record: "rec-title", working: "work-title", lesson: "lesson-title", day: "day-title" }[view];
   const el = $(h); if (el) { el.tabIndex = -1; el.focus({ preventScroll: true }); }
   window.scrollTo(0, 0);
 }
@@ -179,9 +193,15 @@ async function loadHome() {
   const st = await call("get_state"); if (!st) return;
   S.state = st;
   const s = st.settings || {};
-  LANG = s.ui_lang === "it" ? "it" : "en"; applyI18n();
-  $("opt-mixed").checked = !!s.mixed_languages;
+  LANG = s.ui_lang === "fr" ? "fr" : "en"; applyI18n();
+  const sp = Array.isArray(s.spoken_languages) && s.spoken_languages.length ? s.spoken_languages : ["ar", "he"];
+  document.querySelectorAll(".opt-lang").forEach(c => c.checked = sp.includes(c.value));
+  $("opt-dialect").value = s.arabic_dialect || "msa";
+  $("opt-detect").checked = (s.mode || "auto") === "auto";
+  S.forcedLang = s.mode && s.mode !== "auto" ? s.mode : null;
+  $("opt-hebmodel").checked = s.model === "hebrew";
   $("opt-best").checked = s.model === "best";
+  refreshLangUi();
   $("opt-auto").checked = s.auto_recap !== false;
   const fast = st.models && st.models.fast && st.models.fast.installed;
   $("firstrun").hidden = !!fast;
@@ -196,12 +216,12 @@ function groupByDay(lessons) {
 }
 function fmtDayTitle(date) {
   const dt = new Date(date + "T12:00:00"); if (isNaN(dt)) return date;
-  return dt.toLocaleDateString(LANG === "it" ? "it-IT" : "en-GB", { weekday: "long", day: "numeric", month: "short" });
+  return dt.toLocaleDateString(LANG === "fr" ? "fr-FR" : "en-GB", { weekday: "long", day: "numeric", month: "short" });
 }
 function lessonItem(l) {
   const li = el("li"), b = el("button", "lesson-item"); b.type = "button";
   const tt = el("span", "t", l.title || t("untitled"));
-  const tag = { imported: "status_imported", interrupted: "status_interrupted", cancelled: "status_interrupted", failed: "status_failed" }[l.status];
+  const tag = { imported: "status_imported", interrupted: "status_interrupted", cancelled: "status_interrupted", failed: "status_failed", recorded: "status_recorded" }[l.status];
   if (tag) tt.append(el("span", "tag", t(tag)));
   b.append(tt);
   b.append(el("span", "d", [l.duration_s ? fmtDur(l.duration_s) : ""].filter(Boolean).join(" · ")));
@@ -228,13 +248,124 @@ function renderDays(days) {
 function fmtDate(d) {
   if (!d) return "";
   const dt = new Date(d); if (isNaN(dt)) return String(d);
-  return dt.toLocaleDateString(LANG === "it" ? "it-IT" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return dt.toLocaleDateString(LANG === "fr" ? "fr-FR" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+/* Languages of the lessons: checkboxes + dialect (when Arabic is ticked) + "detect automatically". */
+const LANG_ORDER = ["ar", "he", "en", "fr"];
+function ticked() { return LANG_ORDER.filter(c => { const b = document.querySelector('.opt-lang[value="' + c + '"]'); return b && b.checked; }); }
+function refreshLangUi() {
+  const sel = ticked();
+  $("dialect-row").hidden = !sel.includes("ar");
+  $("detect-row").hidden = sel.length < 2;
+  const forced = sel.length >= 2 && !$("opt-detect").checked;
+  const hint = $("forced-hint"); hint.hidden = !forced;
+  if (forced) hint.textContent = t("forced_hint", { lang: t("lang_" + sel[0]) });
+  $("hebmodel-row").hidden = !(sel.length === 1 && sel[0] === "he");
 }
 function currentOpts() {
-  return { model: $("opt-best").checked ? "best" : "fast", language: $("opt-mixed").checked ? "auto" : "ar" };
+  let sel = ticked(); if (!sel.length) sel = ["ar"];
+  const auto = sel.length >= 2 && $("opt-detect").checked;
+  const heb = sel.length === 1 && sel[0] === "he" && $("opt-hebmodel").checked;
+  return { model: heb ? "hebrew" : $("opt-best").checked ? "best" : "fast", spoken_languages: sel,
+    arabic_dialect: $("opt-dialect").value, mode: auto ? "auto" : sel[0] };
 }
 function saveOpts() {
-  call("set_settings", { mixed_languages: $("opt-mixed").checked, model: currentOpts().model, auto_recap: $("opt-auto").checked });
+  refreshLangUi();
+  const o = currentOpts();
+  call("set_settings", { spoken_languages: o.spoken_languages, arabic_dialect: o.arabic_dialect, mode: o.mode,
+    model: o.model, auto_recap: $("opt-auto").checked });
+}
+function onLangChange(e) {
+  if (!ticked().length) e.target.checked = true;   // at least one language stays ticked
+  saveOpts();
+}
+
+
+/* ---------- recording from the microphone ---------- */
+const R = { active: false, paused: false, lessonId: null, silent: false };
+function fmtClock(s) {
+  s = Math.max(0, Math.floor(s || 0));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60, p = n => String(n).padStart(2, "0");
+  return h ? `${h}:${p(m)}:${p(x)}` : `${m}:${p(x)}`;
+}
+function recErr(e) {
+  const msg = String(e && e.message || e || "");
+  const m = /^(?:[\w.]*:)?\s*(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR|BUSY)\b/.exec(msg) || /(NO_MIC|MIC_DENIED|DISK_FULL|MIC_ERROR)/.exec(msg);
+  if (m && STRINGS.en["rec_err_" + m[1]]) return t("rec_err_" + m[1]);
+  return msg;
+}
+function recSetState(st) {
+  $("rec-state").textContent = st ? t("rec_state_" + st) : "";
+  $("btn-rec-start").hidden = R.active;
+  $("btn-rec-pause").hidden = !R.active; $("btn-rec-stop").hidden = !R.active;
+  $("btn-rec-pause").textContent = t(R.paused ? "rec_resume" : "rec_pause");
+  $("rec-device").disabled = R.active;
+}
+function recHint(msg) { const h = $("rec-hint"); h.textContent = msg || ""; h.hidden = !msg; }
+async function openRecord() {
+  if (S.job) return;
+  R.active = false; R.paused = false; R.lessonId = null;
+  $("rec-live").hidden = false; $("rec-done").hidden = true;
+  $("rec-time").textContent = "0:00"; $("rec-meter").style.width = "0"; recHint("");
+  const sel = $("rec-device"); sel.textContent = "";
+  let devs = null;
+  try { devs = await api().list_input_devices(); } catch (e) { toast(recErr(e), true); return; }
+  for (const d of devs || []) { const o = el("option", "", d.name); o.value = d.id; if (d.default) o.selected = true; sel.append(o); }
+  if (!devs || !devs.length) { toast(t("rec_err_NO_MIC"), true); return; }
+  recSetState("ready"); show("record");
+}
+async function recStart() {
+  const dev = $("rec-device").value;
+  try {
+    const r = await api().start_recording({ device_id: dev === "" ? null : +dev });
+    R.active = true; R.paused = false; R.lessonId = r.lesson_id; recHint("");
+    recSetState("recording");
+  } catch (e) { toast(recErr(e), true); }
+}
+async function recPause() {
+  if (!R.active) return;
+  const r = await call(R.paused ? "resume_recording" : "pause_recording");
+  if (r) { R.paused = !R.paused; recSetState(R.paused ? "paused" : "recording"); }
+}
+async function recStop() {
+  if (!R.active) return;
+  const r = await call("stop_recording"); if (!r) return;
+  recDone(r);
+}
+function recDone(r) {
+  R.active = false; R.lessonId = r.lesson_id;
+  $("rec-live").hidden = true; $("rec-done").hidden = false;
+  let msg = t("rec_done_len", { t: fmtClock(r.duration_s) });
+  if (r.reason === "device_lost") msg = t("rec_lost") + " " + msg;
+  else if (r.reason === "disk_full") msg = t("rec_disk_stopped") + " " + msg;
+  $("rec-done-msg").textContent = msg;
+  loadHomeSilent();
+}
+async function recCancel() {
+  if (R.active) {
+    if (!window.confirm(t("rec_confirm_discard"))) return;
+    await call("cancel_recording"); R.active = false;
+  }
+  loadHome();
+}
+async function recTranscribeNow() {
+  const lid = R.lessonId; if (!lid || S.job) return;
+  resetLive(); S.segCount = 0; S.lessonId = lid;
+  setWork(t("preparing"), null, null);
+  $("work-title").textContent = (S.state && (S.state.lessons || []).find(l => l.id === lid) || {}).title || t("untitled");
+  show("working");
+  const r = await call("resume_transcription", lid, null);
+  if (!r || !r.lesson_id) { openLesson(lid); return; }
+  S.job = { id: lid, kind: "transcribe" };
+}
+function onRecordEvent(p) {
+  if (S.view !== "record") return;
+  if (p.state === "stopped" && p.final && R.active) { recDone(p); return; }
+  if (!R.active) return;
+  $("rec-time").textContent = fmtClock(p.elapsed_s);
+  const lv = Math.min(1, Math.sqrt(p.level || 0) * 1.6);
+  const m = $("rec-meter"); m.style.width = Math.round(lv * 100) + "%"; m.classList.toggle("hot", !!p.peak_clipping);
+  recHint(p.silent ? t("rec_silent") : p.peak_clipping ? t("rec_clip") : p.low_disk ? t("rec_low_disk") : "");
 }
 
 /* ---------- import ---------- */
@@ -310,8 +441,8 @@ setInterval(tickElapsed, 1000);
    re-renders the existing text, so it stays fast with thousands of segments. */
 const LIVE = { q: [], raf: 0, n: 0 };
 function resetLive() { $("live").textContent = ""; LIVE.q = []; LIVE.n = 0; S.el = null; }
-function addLiveSegment(text) {
-  LIVE.q.push(text);
+function addLiveSegment(text, lang) {
+  LIVE.q.push({ text, lang });
   if (!LIVE.raf) LIVE.raf = requestAnimationFrame(flushLive);
 }
 function flushLive() {
@@ -319,7 +450,10 @@ function flushLive() {
   const live = $("live");
   const near = LIVE.n === 0 || live.scrollHeight - live.scrollTop - live.clientHeight < 60;
   const frag = document.createDocumentFragment();
-  for (const tx of LIVE.q) frag.append(el("span", null, (LIVE.n++ ? " " : "") + tx));
+  for (const q of LIVE.q) {
+    const sp = el("span", null, (LIVE.n++ ? " " : "") + q.text); sp.dir = "auto"; if (q.lang) sp.lang = q.lang;
+    frag.append(sp);
+  }
   LIVE.q = [];
   live.append(frag);
   if (near) live.scrollTop = live.scrollHeight;
@@ -349,13 +483,22 @@ function renderLesson() {
 function renderTranscript() {
   const box = $("transcript"); box.textContent = "";
   const frag = document.createDocumentFragment();
-  (S.lesson.segments || []).forEach((sg, i) => {
-    const sp = el("span", "seg", sg.text); sp.dir = "auto"; sp.dataset.i = i;
+  const segs = S.lesson.segments || [];
+  const multi = new Set(segs.map(x => x.lang).filter(Boolean)).size > 1;   // tags only for mixed lessons
+  let prevLang = null;
+  segs.forEach((sg, i) => {
+    if (multi && sg.lang && sg.lang !== prevLang) frag.append(langTag(sg.lang));
+    prevLang = sg.lang || prevLang;
+    const sp = el("span", "seg", sg.text); sp.dir = "auto"; if (sg.lang) sp.lang = sg.lang; sp.dataset.i = i;
     if (sg.start != null) { sp.dataset.start = sg.start; sp.tabIndex = 0; sp.setAttribute("role", "button"); }
     else sp.classList.add("nots");
     frag.append(sp, document.createTextNode(" "));
   });
   box.append(frag);
+}
+function langTag(code) {
+  const tg = el("span", "lt", code.toUpperCase()); tg.title = t("lang_" + code); tg.setAttribute("aria-label", t("lang_" + code));
+  return tg;
 }
 function segFromEvent(e) {
   const sp = e.target.closest && e.target.closest(".seg");
@@ -373,11 +516,13 @@ function selectSeg(i, sp, sg) {
 }
 function renderResume() {
   const m = S.lesson.meta || {}, segs = S.lesson.segments || [];
-  const can = ["interrupted", "cancelled", "failed"].includes(m.status) && m.audio_path && !(S.job && S.job.id === S.lessonId);
+  const can = ["interrupted", "cancelled", "failed", "recorded"].includes(m.status) && m.audio_path && !(S.job && S.job.id === S.lessonId);
   $("resume-box").hidden = !can;
   if (!can) return;
+  $("btn-resume").textContent = t(m.status === "recorded" ? "rec_transcribe" : "resume");
   let msg;
-  if (!segs.length) msg = t("resume_none");
+  if (m.status === "recorded" && !segs.length) msg = t("rec_not_transcribed");
+  else if (!segs.length) msg = t("resume_none");
   else {
     const at = fmtTime(segs[segs.length - 1].end);
     msg = m.duration_s ? t("resume_msg", { at, total: fmtTime(m.duration_s) }) : t("resume_msg_nototal", { at });
@@ -391,7 +536,7 @@ async function resumeLesson() {
   let path = null;
   if (!m.audio_ok) { path = await call("pick_audio"); if (!path) return; }
   resetLive(); S.segCount = 0;
-  for (const sg of segs) LIVE.q.push(sg.text);
+  for (const sg of segs) LIVE.q.push({ text: sg.text, lang: sg.lang });
   flushLive();
   const last = segs.length ? segs[segs.length - 1].end : 0;
   setWork(t("preparing"), m.duration_s ? last / m.duration_s * 100 : null, null);
@@ -437,10 +582,10 @@ function renderDayTranscript() {
     const sep = el("div", "part-sep");
     const tm = p.date ? new Date(p.date) : null;
     sep.append(el("span", "", p.title || t("untitled")));
-    if (tm && !isNaN(tm)) sep.append(el("span", "", tm.toLocaleTimeString(LANG === "it" ? "it-IT" : "en-GB", { hour: "2-digit", minute: "2-digit" })));
+    if (tm && !isNaN(tm)) sep.append(el("span", "", tm.toLocaleTimeString(LANG === "fr" ? "fr-FR" : "en-GB", { hour: "2-digit", minute: "2-digit" })));
     const open = el("button", "linkbtn", t("open_part")); open.type = "button"; open.onclick = () => openLesson(p.id);
     sep.append(open); frag.append(sep);
-    for (const sg of (S.day.segments_by_part[p.id] || [])) { const sp = el("span", "seg nots", sg.text); sp.dir = "auto"; frag.append(sp, document.createTextNode(" ")); }
+    for (const sg of (S.day.segments_by_part[p.id] || [])) { const sp = el("span", "seg nots", sg.text); sp.dir = "auto"; if (sg.lang) sp.lang = sg.lang; frag.append(sp, document.createTextNode(" ")); }
   }
   box.append(frag);
 }
@@ -479,7 +624,7 @@ function renderRecap(body, rc, busy) {
     const tb = el("table", "vocab");
     for (const v of rc.vocab) {
       const tr = el("tr"), a = el("td"), b = el("td");
-      const ar = el("div", "ar", v.arabic); ar.lang = "ar"; a.append(ar);
+      const ar = el("div", v.lang === "en" || v.lang === "fr" ? "lat" : "ar", v.arabic); ar.lang = v.lang || "ar"; a.append(ar);
       if (v.transliteration) a.append(el("div", "tr", v.transliteration));
       b.append(el("div", "", v.meaning)); tr.append(a, b); tb.append(tr);
     }
@@ -588,7 +733,7 @@ function renderAi() {
       const tb = el("table", "vocab");
       for (const v of n.vocab) {
         const tr = el("tr"), a = el("td"), b = el("td");
-        const ar = el("div", "ar", v.arabic); ar.lang = "ar"; a.append(ar);
+        const ar = el("div", v.lang === "en" || v.lang === "fr" ? "lat" : "ar", v.arabic); ar.lang = v.lang || "ar"; a.append(ar);
         if (v.transliteration) a.append(el("div", "tr", v.transliteration));
         b.append(el("div", "", v.meaning));
         if (v.note) b.append(el("div", "muted small", v.note));
@@ -638,6 +783,7 @@ function textWithArabic(text, cls) {
 /* ---------- events from Python ---------- */
 window.__onEvent = async function (name, p) {
   p = p || {};
+  if (name === "record") { onRecordEvent(p); return; }
   if (name === "progress") {
     if (p.job === "download") {
       const llm = p.id === "gemma";
@@ -656,7 +802,7 @@ window.__onEvent = async function (name, p) {
   } else if (name === "segment") {
     if (S.view === "working" && (!S.lessonId || p.lesson_id === S.lessonId)) {
       if (!S.job) S.job = { id: p.lesson_id, kind: "transcribe" };
-      addLiveSegment(p.text);
+      addLiveSegment(p.text, p.lang);
     }
   } else if (name === "done") {
     if (p.job === "transcribe") {
@@ -699,6 +845,10 @@ function wire() {
   $("brand").onclick = () => { if (!S.job) loadHome(); };
   $("btn-firstrun").onclick = pickAndStart;
   $("btn-import").onclick = () => importTranscript(null);
+  $("btn-record").onclick = openRecord;
+  $("btn-rec-start").onclick = recStart; $("btn-rec-pause").onclick = recPause; $("btn-rec-stop").onclick = recStop;
+  $("btn-rec-cancel").onclick = recCancel;
+  $("btn-rec-now").onclick = recTranscribeNow; $("btn-rec-later").onclick = () => { toast(t("status_recorded")); loadHome(); };
   $("btn-resume").onclick = resumeLesson;
   $("opt-auto").onchange = saveOpts;
   $("btn-day-back").onclick = loadHome;
@@ -720,7 +870,9 @@ function wire() {
     if (e.key !== "Enter" && e.key !== " ") return;
     const h = segFromEvent(e); if (h) { e.preventDefault(); selectSeg(h.i, h.sp, S.lesson.segments[h.i]); }
   });
-  $("opt-mixed").onchange = saveOpts; $("opt-best").onchange = saveOpts;
+  document.querySelectorAll(".opt-lang").forEach(c => c.onchange = onLangChange);
+  $("opt-dialect").onchange = saveOpts; $("opt-detect").onchange = saveOpts; $("opt-hebmodel").onchange = saveOpts;
+  $("opt-best").onchange = saveOpts;
   $("btn-cancel").onclick = () => { if (S.job) call("cancel", S.job.id); };
   $("btn-back").onclick = loadHome;
   $("btn-summary").onclick = () => toggleAi("summary");

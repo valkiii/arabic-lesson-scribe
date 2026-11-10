@@ -34,8 +34,8 @@ def test_extract_json_and_prompts():
     with pytest.raises(ValueError):
         llm.extract_json("nothing")
     for name in ("summary", "summary_reduce", "vocab", "classify", "qa", "qa_extract"):
-        out = llm.render(name, "it", text="نص {x}", question="ما؟")
-        assert "Italian" in out and "نص {x}" in out
+        out = llm.render(name, "fr", text="نص {x}", question="ما؟")
+        assert "French" in out and "نص {x}" in out
 
 
 class FakeLLM(BaseHTTPRequestHandler):
@@ -81,11 +81,11 @@ def test_llm_flows_with_mock_server(client):
     assert len(FakeLLM.prompts) >= n_chunks + 1  # map + reduce
     assert client.summarize(segs(2)) == "REPLY"
     v = client.vocab(segs(2))
-    assert v == [{"arabic": "بيت", "transliteration": "bayt", "meaning": "house", "note": ""}]
+    assert v == [{"arabic": "بيت", "lang": "ar", "transliteration": "bayt", "meaning": "house", "note": ""}]
     o = client.classify(segs(30))
     assert len(o) == 3 and o[0]["kind"] == "grammar" and o[0]["summary"] == "verbs" and "end" in o[0] and o[0]["start"] == 0
     assert client.ask(s, "ما؟") == "REPLY"
-    assert "Italian" in (client.ask(segs(1), "q", "it") and FakeLLM.prompts[-1])
+    assert "French" in (client.ask(segs(1), "q", "fr") and FakeLLM.prompts[-1])
 
 
 def test_library_roundtrip():

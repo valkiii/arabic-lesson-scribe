@@ -11,11 +11,11 @@ L = {
            "quiz": "Practice questions", "answer": "Answer", "why": "Why", "unclear": "Note", "print": "Print",
            "ai": "Made by a local AI assistant from an automatic transcript. It can be wrong; the transcript is the source of truth.",
            "options": "Options"},
-    "it": {"recap": "Riepilogo", "taught": "Cosa è stato spiegato", "focus": "Punti chiave: cosa dovresti aver imparato oggi",
-           "vocab": "Vocabolario chiave", "grammar": "Punti di grammatica", "homework": "Compiti o da ripassare",
-           "quiz": "Domande di pratica", "answer": "Risposta", "why": "Perché", "unclear": "Nota", "print": "Stampa",
-           "ai": "Creato da un assistente IA locale a partire da una trascrizione automatica. Può sbagliare; la trascrizione è la fonte affidabile.",
-           "options": "Opzioni"},
+    "fr": {"recap": "Résumé", "taught": "Ce qui a été enseigné", "focus": "Points clés : ce que vous auriez dû apprendre aujourd'hui",
+           "vocab": "Vocabulaire clé", "grammar": "Points de grammaire", "homework": "Devoirs ou à réviser",
+           "quiz": "Questions d'entraînement", "answer": "Réponse", "why": "Pourquoi", "unclear": "Note", "print": "Imprimer",
+           "ai": "Créé par un assistant IA local à partir d'une transcription automatique. Il peut se tromper ; la transcription fait foi.",
+           "options": "Options"},
 }
 
 

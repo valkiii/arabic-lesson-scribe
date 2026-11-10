@@ -158,7 +158,7 @@ def test_recap_map_reduce_fits_context(server):
     assert len(Fake.prompts) >= n_chunks + 1
     # single small part: one call, no reduce
     Fake.prompts.clear()
-    assert c.day_recap([seg_list(3)], "it")["topic"] == "part" and len(Fake.prompts) == 1 and "Italian" in Fake.prompts[0]
+    assert c.day_recap([seg_list(3)], "fr")["topic"] == "part" and len(Fake.prompts) == 1 and "French" in Fake.prompts[0]
 
 
 def test_quiz_exactly_ten_repair_and_dedupe(server):

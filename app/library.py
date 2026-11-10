@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import config
+from . import config, langs
 
 _BAD = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -60,7 +60,8 @@ def lesson_day(meta: dict) -> str:
 
 
 def create_lesson(title: str | None, audio_path: str, language: str | None, model: str,
-                  recorded: datetime | None = None) -> str:
+                  recorded: datetime | None = None, lang_plan: dict | None = None) -> str:
+    """lang_plan: {spoken_languages, arabic_dialect, mode} as used for this recording (kept for resume)."""
     now = datetime.now()
     recorded = recorded or now
     base = f"{now:%Y-%m-%d %H.%M} {_safe(title or Path(audio_path).stem)}"
@@ -73,6 +74,9 @@ def create_lesson(title: str | None, audio_path: str, language: str | None, mode
     meta = {"id": lid, "title": (title or Path(audio_path).stem).strip(), "date": recorded.isoformat(timespec="seconds"),
             "day": f"{recorded:%Y-%m-%d}", "created": now.isoformat(timespec="seconds"), "audio_path": str(audio_path), "language": language, "model": model, "duration_s": 0,
             "status": "transcribing"}
+    if lang_plan:
+        meta.update(spoken_languages=lang_plan["spoken_languages"], arabic_dialect=lang_plan["arabic_dialect"],
+                    mode=lang_plan["mode"])
     _write_json(d / "meta.json", meta)
     (d / "segments.partial.jsonl").write_text("", encoding="utf-8")
     return lid
@@ -147,6 +151,21 @@ def _write_transcript(d: Path, meta: dict, segments: list[dict]) -> None:
     (d / "transcript.md").write_text(f"# {meta['title']}\n\n" + "\n\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _recover_recording(d: Path, meta: dict) -> str:
+    """Repair an unfinished recording; it becomes an interrupted lesson that can be transcribed."""
+    from . import recorder
+    wav = Path(meta.get("audio_path") or d / "recording.wav")
+    try:
+        dur = recorder.repair_wav(wav)
+    except (OSError, ValueError):
+        return "failed"
+    if dur < 1.0:
+        return "failed"
+    meta["duration_s"] = round(dur, 1)
+    meta["recovered"] = True
+    return "interrupted"
+
+
 def recover_interrupted() -> int:
     """At startup: lessons left in 'transcribing' (app closed or crashed) become 'interrupted'
     when they have partial segments, otherwise 'failed'. Returns how many were changed."""
@@ -157,6 +176,11 @@ def recover_interrupted() -> int:
             continue
         try:
             meta = json.loads(mp.read_text(encoding="utf-8"))
+            if meta.get("status") == "recording":   # the app closed during a recording: repair the WAV
+                meta["status"] = _recover_recording(d, meta)
+                _write_json(mp, meta)
+                n += 1
+                continue
             if meta.get("status") != "transcribing":
                 continue
             has = bool(_read_partial(d, 1))
@@ -173,6 +197,7 @@ def finish_lesson(lesson_id: str, segments: list[dict], duration: float, languag
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     meta.update(duration_s=round(duration or (segments[-1]["end"] if segments else 0), 1),
                 status="done", detected_language=language,
+                languages=langs.lesson_languages(segments, meta) if segments else meta.get("languages", []),
                 preview=" ".join(s["text"] for s in segments[:3])[:140])
     _write_json(d / "meta.json", meta)
     _write_transcript(d, meta, segments)

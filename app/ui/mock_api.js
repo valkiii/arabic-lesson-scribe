@@ -9,25 +9,27 @@
     "Now repeat after me, please. Ripetete insieme a me.",
     "كلمة جديدة: المَدْرَسَة، وتعني المكان الذي يتعلم فيه الطلاب.",
     "من يستطيع أن يكوّن جملة بهذه الكلمة؟ نعم، تفضلي.",
+    "המורה, איך אומרים school בערבית? אפשר לחזור על זה?",
     "ذهبتُ إلى المدرسة صباحاً مع صديقتي.",
     "ممتاز، أحسنتِ. والآن الواجب المنزلي: اكتبوا خمس جمل باستخدام الأفعال الجديدة.",
     "إلى اللقاء، وشكراً لكم على حسن الاستماع."
   ];
+  const langOf = text => /[\u0590-\u05FF]/.test(text) ? "he" : /[\u0600-\u06FF]/.test(text) && !/^[A-Za-z]/.test(text) ? "ar" : "en";
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const emit = (n, p) => window.__onEvent && window.__onEvent(n, p);
   const lessons = {
     l1: { meta: { id: "l1", title: "Past and present verbs", date: "2026-11-03T18:30:00", duration_s: 2700 },
-      segments: SEGS.map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } }
+      segments: SEGS.map((text, i) => ({ start: i * 12, end: i * 12 + 11, text, lang: langOf(text) })), notes: { qa: [] } }
   };
   // an interrupted lesson (original recording present) and one whose recording moved (?moved=1 is not needed: l_moved)
   lessons.l_int = { meta: { id: "l_int", title: "Lesson 11 (interrupted)", date: "2026-11-05T18:30:00", duration_s: 3600, status: "interrupted",
     audio_path: "C:\\Users\\Sara\\Recordings\\lesson11.m4a", audio_ok: true },
-    segments: SEGS.slice(0, 4).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+    segments: SEGS.slice(0, 4).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text, lang: langOf(text) })), notes: { qa: [] } };
   lessons.l_moved = { meta: { id: "l_moved", title: "Lesson 10 (recording moved)", date: "2026-11-04T18:30:00", duration_s: 1800, status: "interrupted",
     audio_path: "D:\\old\\lesson10.m4a", audio_ok: false },
-    segments: SEGS.slice(0, 3).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+    segments: SEGS.slice(0, 3).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text, lang: langOf(text) })), notes: { qa: [] } };
   lessons.l1b = { meta: { id: "l1b", title: "Past and present verbs, part 2", date: "2026-11-03T20:10:00", duration_s: 900, status: "done" },
-    segments: SEGS.slice(5).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+    segments: SEGS.slice(5).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text, lang: langOf(text) })), notes: { qa: [] } };
   const dayNotes = {};
   const dayOf = l => l.meta.day || String(l.meta.date).slice(0, 10);
   const partsOf = day => Object.values(lessons).filter(l => dayOf(l) === day).sort((a, b) => a.meta.date < b.meta.date ? -1 : 1);
@@ -49,11 +51,11 @@
   }
   const makeRecap = day => ({ topic: "Past and present Arabic verbs, with new school vocabulary.", taught: ["The past tense: كَتَبَ, ذَهَبَ", "The present tense: يَكْتُبُ, يَذْهَبُ"],
     focus: ["You can use the past tense to say that something already happened.", "You can say 'he writes' with يَكْتُبُ.", "You can say 'school' with المَدْرَسَة."],
-    vocab: [{ arabic: "المَدْرَسَة", meaning: "school", transliteration: "al-madrasa" }, { arabic: "كَتَبَ", meaning: "he wrote", transliteration: "kataba" }],
+    vocab: [{ arabic: "المَدْرَسَة", meaning: "school", transliteration: "al-madrasa" }, { arabic: "كَتَبَ", meaning: "he wrote", transliteration: "kataba" }, { arabic: "שאלה", lang: "he", meaning: "question", transliteration: "she'ela" }],
     grammar: ["Past tense describes finished actions."], homework: ["Write five sentences with the new verbs."], unclear_note: "", stale: false, parts: partsOf(day).map(l => l.meta.id) });
   const STRESS = new URLSearchParams(location.search).get("stress"); // ?stress=3000 streams that many segments fast
-  const st = { fast: false, best: false, gemma: false, settings: { ui_lang: "en", model: "fast", mixed_languages: false } };
-  let n = 2, cancelled = {};
+  const st = { fast: false, best: false, gemma: false, settings: { ui_lang: "en", model: "fast", spoken_languages: ["ar", "he"], arabic_dialect: "levantine", mode: "auto", auto_recap: true } };
+  let n = 2, cancelled = {}, rec = null;
   const meta = l => ({ id: l.meta.id, day: dayOf(l), title: l.meta.title, date: l.meta.date, duration_s: l.meta.duration_s, status: l.meta.status || "done", preview: (l.segments[0] || {}).text || "" });
 
   async function download(id, label, mb) {
@@ -77,7 +79,7 @@
 
   const api = {
     async get_state() {
-      return { models: { fast: { installed: st.fast, size_mb: 1600 }, best: { installed: st.best, size_mb: 3100 }, gemma: { installed: st.gemma, size_mb: 2840 } },
+      return { models: { fast: { installed: st.fast, size_mb: 1600 }, best: { installed: st.best, size_mb: 3100 }, hebrew: { installed: false, size_mb: 1620 }, gemma: { installed: st.gemma, size_mb: 2840 } },
         lessons: Object.values(lessons).map(meta), days: api.list_days_sync(), settings: st.settings };
     },
     list_days_sync() {
@@ -109,6 +111,36 @@
     },
     async export_day(day, fmt, ans, what) { return { path: "C:\\Users\\Sara\\Documents\\Arabic Lessons\\_days\\" + day + "-" + what + "." + fmt }; },
     async open_file() { return { path: "" }; },
+    // ---- microphone recording (simulated: ?rec=nomic or ?rec=denied make start fail) ----
+    async list_input_devices() {
+      if (new URLSearchParams(location.search).get("rec") === "nomic") return [];
+      return [{ id: 0, name: "MacBook Microphone (built-in)", default: true }, { id: 3, name: "USB headset microphone", default: false }];
+    },
+    async start_recording(o) {
+      if (new URLSearchParams(location.search).get("rec") === "denied")
+        throw new Error("MIC_DENIED: Windows may be blocking the microphone.");
+      if (rec) throw new Error("BUSY: a recording is already running");
+      const id = "l" + (n++);
+      lessons[id] = { meta: { id, title: "Recording " + new Date().toTimeString().slice(0, 5), date: new Date().toISOString(), duration_s: 0, status: "recording" }, segments: [], notes: { qa: [] } };
+      rec = { id, t: 0, paused: false, tick: 0 };
+      rec.timer = setInterval(() => {
+        if (!rec.paused) rec.t += 0.1;
+        const level = rec.paused ? 0 : Math.max(0, 0.02 + 0.06 * Math.abs(Math.sin(rec.tick / 3)) * (0.5 + Math.random()));
+        rec.tick++;
+        const silent = new URLSearchParams(location.search).get("rec") === "silent" && rec.t > 3;
+        emit("record", { recording_id: id, lesson_id: id, state: rec.paused ? "paused" : "recording", elapsed_s: Math.round(rec.t * 10) / 10,
+          level: silent ? 0 : level, peak_clipping: false, silent, low_disk: false, free_disk_mb: 50000 });
+      }, 100);
+      return { recording_id: id, lesson_id: id };
+    },
+    async pause_recording() { rec.paused = true; return { state: "paused" }; },
+    async resume_recording() { rec.paused = false; return { state: "recording" }; },
+    async stop_recording() {
+      clearInterval(rec.timer); const l = lessons[rec.id];
+      Object.assign(l.meta, { status: "recorded", duration_s: Math.round(rec.t), audio_path: "C:\\Users\\Sara\\Documents\\Arabic Lessons\\" + rec.id + "\\recording.wav", audio_ok: true });
+      const r = { lesson_id: rec.id, audio_path: l.meta.audio_path, duration_s: Math.round(rec.t * 10) / 10, reason: "stopped" }; rec = null; return r;
+    },
+    async cancel_recording() { clearInterval(rec.timer); delete lessons[rec.id]; rec = null; return { cancelled: true }; },
     async pick_audio() { await sleep(200); return "C:\\Users\\Sara\\Recordings\\Arabic lesson 12.m4a"; },
     async start_transcription(path, opts) {
       const id = "l" + (n++); cancelled = {};
@@ -121,7 +153,7 @@
           if (cancelled.all) { lessons[id].meta.status = "interrupted"; lessons[id].meta.audio_path = path; lessons[id].meta.audio_ok = true;
             if (!lessons[id].segments.length) delete lessons[id]; emit("done", { job: "transcribe", id, ok: false, error: "cancelled" }); return; }
           await sleep(STRESS ? 2 : 900);
-          const sg = { start: i * 12, end: i * 12 + 11, text: SEGS[i % SEGS.length] };
+          const sg = { start: i * 12, end: i * 12 + 11, text: SEGS[i % SEGS.length], lang: langOf(SEGS[i % SEGS.length]) };
           lessons[id].segments.push(sg);
           emit("segment", { lesson_id: id, ...sg });
           emit("progress", { job: "transcribe", id, pct: Math.round((i + 1) / total * 100), message: "Transcribing",
@@ -142,7 +174,7 @@
           if (cancelled.all) { l.meta.status = "interrupted"; emit("done", { job: "transcribe", id, ok: false, error: "cancelled" }); return; }
           await sleep(STRESS ? 2 : 900);
           const last = l.segments.length ? l.segments[l.segments.length - 1].end : 0;
-          const sg = { start: last, end: last + 11, text: SEGS[i % SEGS.length] };
+          const sg = { start: last, end: last + 11, text: SEGS[i % SEGS.length], lang: langOf(SEGS[i % SEGS.length]) };
           l.segments.push(sg);
           emit("segment", { lesson_id: id, ...sg });
           const el = (performance.now() - t0) / 1000;

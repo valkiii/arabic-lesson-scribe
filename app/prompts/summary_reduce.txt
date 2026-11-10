@@ -1,4 +1,4 @@
-Below are partial summaries of consecutive parts of one Arabic lesson. Merge them into a single coherent summary of the whole lesson in {lang_name}. Use short bullet points under simple headings (topic, key points, examples given, homework if mentioned). Remove repetition. Keep Arabic words and phrases in Arabic script exactly as written. Do not add anything that is not in the partial summaries.
+Below are partial summaries of consecutive parts of one language lesson (target language(s): {target}). Merge them into a single coherent summary of the whole lesson in {lang_name}. Use short bullet points under simple headings (topic, key points, examples given, homework if mentioned). Remove repetition. Keep target-language words and phrases in their own script (Arabic or Hebrew) exactly as written. Do not add anything that is not in the partial summaries.
 
 Partial summaries:
 {text}

@@ -29,6 +29,7 @@
       <button id="btn-firstrun" class="btn primary" type="button" data-i18n="fr_button"></button>
     </div>
 
+    <div class="start-row">
     <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-describedby="drop-hint">
       <div class="drop-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
@@ -36,11 +37,44 @@
       <div class="drop-title" data-i18n="drop_title"></div>
       <div id="drop-hint" class="muted" data-i18n="drop_hint"></div>
     </div>
+    <button id="btn-record" class="recordcard" type="button">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      <span class="drop-title" data-i18n="rec_btn"></span>
+      <span class="muted" data-i18n="rec_btn_hint"></span>
+    </button>
+    </div>
 
     <p class="import-line"><span class="muted" data-i18n="import_q"></span> <button id="btn-import" class="linkbtn" type="button" data-i18n="import_link"></button></p>
 
+    <fieldset class="langbox" id="langbox">
+      <legend data-i18n="lang_title"></legend>
+      <div class="lang-checks">
+        <label class="check"><input type="checkbox" class="opt-lang" value="ar"> <span data-i18n="lang_ar"></span></label>
+        <label class="check"><input type="checkbox" class="opt-lang" value="he"> <span data-i18n="lang_he"></span></label>
+        <label class="check"><input type="checkbox" class="opt-lang" value="en"> <span data-i18n="lang_en"></span></label>
+        <label class="check"><input type="checkbox" class="opt-lang" value="fr"> <span data-i18n="lang_fr"></span></label>
+      </div>
+      <div id="dialect-row" class="lang-row" hidden>
+        <label for="opt-dialect" class="muted" data-i18n="dialect_label"></label>
+        <select id="opt-dialect">
+          <option value="msa" data-i18n="dia_msa"></option>
+          <option value="levantine" data-i18n="dia_levantine"></option>
+          <option value="egyptian" data-i18n="dia_egyptian"></option>
+          <option value="gulf" data-i18n="dia_gulf"></option>
+          <option value="maghrebi" data-i18n="dia_maghrebi"></option>
+        </select>
+        <p class="muted small" data-i18n="dialect_note"></p>
+      </div>
+      <div id="detect-row" class="lang-row" hidden>
+        <label class="check"><input type="checkbox" id="opt-detect"> <span data-i18n="opt_detect"></span></label>
+        <p id="forced-hint" class="muted small" hidden></p>
+      </div>
+      <div id="hebmodel-row" class="lang-row" hidden>
+        <label class="check"><input type="checkbox" id="opt-hebmodel"> <span data-i18n="opt_hebmodel"></span></label>
+      </div>
+    </fieldset>
+
     <div class="options">
-      <label class="check"><input type="checkbox" id="opt-mixed"> <span data-i18n="opt_mixed"></span></label>
       <label class="check"><input type="checkbox" id="opt-auto"> <span data-i18n="opt_auto"></span></label>
       <label class="check"><input type="checkbox" id="opt-best"> <span data-i18n="opt_best"></span></label>
     </div>
@@ -48,6 +82,36 @@
     <h2 class="section" data-i18n="lessons_title"></h2>
     <div id="day-list"></div>
     <p id="lessons-empty" class="muted" data-i18n="lessons_empty" hidden></p>
+  </section>
+
+  <!-- Recording -->
+  <section id="view-record" class="view" hidden aria-labelledby="rec-title">
+    <h1 id="rec-title" class="view-title" data-i18n="rec_title"></h1>
+    <div id="rec-live">
+      <div id="rec-time" class="rec-time" role="timer" aria-live="off">0:00</div>
+      <div class="meter" aria-hidden="true"><div id="rec-meter" class="meter-fill"></div></div>
+      <p id="rec-state" class="muted center" role="status" aria-live="polite"></p>
+      <p id="rec-hint" class="notice" role="status" aria-live="polite" hidden></p>
+      <div class="lang-row center">
+        <label for="rec-device" class="muted" data-i18n="rec_device"></label>
+        <select id="rec-device"></select>
+      </div>
+      <div class="actions center">
+        <button id="btn-rec-start" class="btn primary" type="button" data-i18n="rec_start"></button>
+        <button id="btn-rec-pause" class="btn" type="button" data-i18n="rec_pause" hidden></button>
+        <button id="btn-rec-stop" class="btn primary" type="button" data-i18n="rec_stop" hidden></button>
+      </div>
+      <p class="muted center small" data-i18n="rec_tip"></p>
+      <p class="center"><button id="btn-rec-cancel" class="linkbtn" type="button" data-i18n="cancel"></button></p>
+    </div>
+    <div id="rec-done" class="card center" hidden>
+      <h2 data-i18n="rec_done_title"></h2>
+      <p id="rec-done-msg" class="muted"></p>
+      <div class="actions">
+        <button id="btn-rec-now" class="btn primary" type="button" data-i18n="rec_now"></button>
+        <button id="btn-rec-later" class="btn" type="button" data-i18n="rec_later"></button>
+      </div>
+    </div>
   </section>
 
   <!-- Working -->

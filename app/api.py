@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from . import config, dayexport, downloader, importer, library, llm, power, transcriber
+from . import config, dayexport, downloader, importer, langs, library, llm, power, recorder, transcriber
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +41,9 @@ class Api:
         self._jobs_lock = threading.Lock()
         self._llm = llm.LlmClient()
         self._llm_lock = threading.Lock()
+        self._rec: dict | None = None            # {rec: Recorder, lesson_id, done: bool}
+        self._rec_lock = threading.Lock()
+        self._rec_factory = None                 # tests inject a fake stream factory here
         try:
             n = library.recover_interrupted()
             if n:
@@ -106,7 +109,7 @@ class Api:
     # ---- state ----------------------------------------------------------
     def get_state(self) -> dict:
         models = {k: {"installed": config.is_installed(k), "size_mb": config.MODELS[k]["size_mb"]}
-                  for k in ("fast", "best", "gemma")}
+                  for k in ("fast", "best", "hebrew", "gemma")}
         return {"models": models, "lessons": library.list_lessons(), "days": library.list_days(),
                 "settings": config.load_settings()}
 
@@ -140,20 +143,45 @@ class Api:
         opts = options or {}
         if not path or not Path(path).is_file():
             raise ValueError("File not found")
-        model = opts.get("model") or config.load_settings().get("model", "fast")
-        if model not in ("fast", "best", "tiny-test"):
+        st = config.load_settings()
+        model = opts.get("model") or st.get("model", "fast")
+        if model not in ("fast", "best", "tiny-test", "hebrew"):
             raise ValueError("Unknown model")
-        language = opts.get("language") or ("auto" if config.load_settings().get("mixed_languages") else "ar")
+        # per-recording choices win over the saved settings; "language" is the older name for "mode"
+        mode = opts.get("language") or opts.get("mode") or st.get("mode", "auto")
+        spoken = langs.norm_spoken(opts.get("spoken_languages") or st.get("spoken_languages"))
+        dialect = langs.norm_dialect(opts.get("arabic_dialect") or st.get("arabic_dialect"))
+        plan = langs.resolve(spoken, mode, dialect)
+        self._check_model_languages(model, plan)
+        language = "auto" if plan["kind"] == "auto" else plan["languages"][0]
+        lang_plan = {"spoken_languages": spoken, "arabic_dialect": dialect, "mode": langs.norm_mode(mode)}
         recorded = library.file_mtime(path)
         if opts.get("date"):  # explicit 'YYYY-MM-DD' wins; keep the file's time of day
             day = library.parse_day(opts["date"])
             tod = (recorded or datetime.now()).time()
             recorded = datetime.strptime(day, "%Y-%m-%d").replace(hour=tod.hour, minute=tod.minute, second=tod.second)
         lid = library.create_lesson(opts.get("title"), path, None if language == "auto" else language, model,
-                                    recorded)
+                                    recorded, lang_plan)
         cancel = self._register(lid)
-        self._spawn(self._transcribe_job, lid, path, model, language, cancel)
+        self._spawn(self._transcribe_job, lid, path, model, plan, cancel)
         return {"lesson_id": lid}
+
+    @staticmethod
+    def _check_model_languages(model: str, plan: dict) -> None:
+        only = config.MODELS.get(model, {}).get("only_languages")
+        if only and plan["languages"] != only:
+            raise ValueError("This model was trained for one language and gets worse at the others. "
+                             "Use it only when that language is the only one of the lesson.")
+
+    @staticmethod
+    def _plan_from_meta(meta: dict) -> dict:
+        """The language plan of a stored lesson (older lessons only have meta.language)."""
+        if meta.get("mode") or meta.get("spoken_languages"):
+            return langs.resolve(meta.get("spoken_languages"), meta.get("mode", "auto"), meta.get("arabic_dialect"))
+        lang = meta.get("language")
+        if lang in langs.SUPPORTED:
+            return langs.resolve([lang], lang)
+        return langs.resolve(langs.DEFAULT_SPOKEN, "auto")
 
     def resume_transcription(self, lesson_id: str, path: str | None = None) -> dict:
         """Continue an interrupted/cancelled/failed transcription from the last saved segment.
@@ -171,18 +199,18 @@ class Api:
         if path:
             library.update_meta(lesson_id, audio_path=str(path))
         model = meta.get("model") or config.load_settings().get("model", "fast")
-        language = meta.get("language") or "auto"
+        plan = self._plan_from_meta(meta)
         library.update_meta(lesson_id, status="transcribing")
         cancel = self._register(lesson_id)
-        self._spawn(self._transcribe_job, lesson_id, str(audio), model, language, cancel, True)
+        self._spawn(self._transcribe_job, lesson_id, str(audio), model, plan, cancel, True)
         return {"lesson_id": lesson_id}
 
-    def _transcribe_job(self, lid: str, path: str, model: str, language: str, cancel: threading.Event,
+    def _transcribe_job(self, lid: str, path: str, model: str, plan: dict, cancel: threading.Event,
                         resume: bool = False) -> None:
         with power.keep_awake():
-            self._transcribe_body(lid, path, model, language, cancel, resume)
+            self._transcribe_body(lid, path, model, plan, cancel, resume)
 
-    def _transcribe_body(self, lid, path, model, language, cancel, resume) -> None:
+    def _transcribe_body(self, lid, path, model, plan, cancel, resume) -> None:
         try:
             self._download_with_events(model, cancel)
             existing = library.partial_segments(lid) if resume else []
@@ -196,10 +224,9 @@ class Api:
                     clock["t"] = time.monotonic()
                     self._progress("transcribe", lid, None, "Transcribing", elapsed_s=clock["t"] - t_job)
 
-            def on_seg(s, e, text):
-                seg = {"start": s, "end": e, "text": text}
+            def on_seg(seg):
                 library.append_segment(lid, seg)
-                self._emit("segment", {"lesson_id": lid, "start": s, "end": e, "text": text})
+                self._emit("segment", {"lesson_id": lid, **seg})
 
             def on_prog(pct, cur, dur):
                 now = time.monotonic()
@@ -209,8 +236,10 @@ class Api:
                 eta = eta_for(start_at, cur, dur, clock["t"], now)
                 self._progress("transcribe", lid, pct, "Transcribing", eta, now - t_job)
 
-            res = transcriber.transcribe(path, model, language, on_seg, on_prog, cancel,
-                                         start_at=start_at, on_status=on_status)
+            language = "auto" if plan["kind"] == "auto" else plan["languages"][0]
+            res = transcriber.transcribe(path, model, language, None, on_prog, cancel,
+                                         start_at=start_at, on_status=on_status, languages=plan["languages"],
+                                         dialect=plan["dialect"], on_lang=on_seg)
             segments = existing + res["segments"]
             library.finish_lesson(lid, segments, res["duration"], res["language"])
             self._unregister(lid)  # before "done", so the UI can restart this lesson right away
@@ -227,6 +256,111 @@ class Api:
             self._done("transcribe", lid, False, str(e))
         finally:
             self._unregister(lid)
+
+    # ---- recording from the microphone ----------------------------------
+    def list_input_devices(self) -> list:
+        return recorder.list_input_devices()
+
+    def start_recording(self, options: dict | None = None) -> dict:
+        """Start recording from a microphone into a new lesson (a part of today's lesson day).
+        Raises ValueError("NO_MIC: ..."), ("MIC_DENIED: ..."), ("MIC_ERROR: ..."), ("DISK_FULL: ...")."""
+        opts = options or {}
+        with self._rec_lock:
+            if self._rec and not self._rec["done"]:
+                raise ValueError("BUSY: a recording is already running")
+            st = config.load_settings()
+            spoken = langs.norm_spoken(opts.get("spoken_languages") or st.get("spoken_languages"))
+            dialect = langs.norm_dialect(opts.get("arabic_dialect") or st.get("arabic_dialect"))
+            mode = langs.norm_mode(opts.get("mode") or st.get("mode"))
+            plan = langs.resolve(spoken, mode, dialect)
+            model = opts.get("model") or st.get("model", "fast")
+            if model not in ("fast", "best", "tiny-test", "hebrew"):
+                model = "fast"
+            try:
+                self._check_model_languages(model, plan)
+            except ValueError:
+                model = "fast"
+            language = None if plan["kind"] == "auto" else plan["languages"][0]
+            now = datetime.now()
+            recorded = now
+            if opts.get("date"):
+                day = library.parse_day(opts["date"])
+                recorded = datetime.strptime(day, "%Y-%m-%d").replace(hour=now.hour, minute=now.minute, second=now.second)
+            title = (opts.get("title") or "").strip() or f"Recording {now:%H.%M}"
+            lid = library.create_lesson(title, "", language, model, recorded,
+                                        {"spoken_languages": spoken, "arabic_dialect": dialect, "mode": mode})
+            wav = config.library_dir() / lid / "recording.wav"
+            library.update_meta(lid, status="recording", audio_path=str(wav), source="microphone")
+
+            def on_event(p):
+                self._emit("record", {"recording_id": lid, "lesson_id": lid, **p})
+
+            rec = recorder.Recorder(wav, opts.get("device_id"), on_event, lambda info: self._rec_finished(lid, info),
+                                    stream_factory=self._rec_factory)
+            try:
+                rec.start()
+            except recorder.RecorderError as e:
+                library.delete_lesson(lid)
+                raise ValueError(str(e)) from e
+            self._rec = {"rec": rec, "lesson_id": lid, "done": False, "info": None}
+            self._emit("record", {"recording_id": lid, "lesson_id": lid, "state": "recording", "elapsed_s": 0.0,
+                                  "level": 0.0, "peak_clipping": False, "silent": False})
+        return {"recording_id": lid, "lesson_id": lid}
+
+    def _current_rec(self) -> dict:
+        if not self._rec or self._rec["done"]:
+            raise ValueError("No recording is running")
+        return self._rec
+
+    def pause_recording(self) -> dict:
+        self._current_rec()["rec"].pause()
+        return {"state": "paused"}
+
+    def resume_recording(self) -> dict:
+        self._current_rec()["rec"].resume()
+        return {"state": "recording"}
+
+    def stop_recording(self) -> dict:
+        """Finish the recording. The lesson becomes status "recorded"; transcribe it with
+        resume_transcription(lesson_id) (the UI offers 'Transcribe now' or 'Later')."""
+        r = self._current_rec()
+        info = r["rec"].stop()
+        return self._finalize_recording(r["lesson_id"], info)
+
+    def cancel_recording(self) -> dict:
+        r = self._current_rec()
+        r["rec"].cancel()
+        r["done"] = True
+        try:
+            library.delete_lesson(r["lesson_id"])
+        except (OSError, FileNotFoundError, ValueError):
+            pass
+        return {"cancelled": True}
+
+    def _finalize_recording(self, lid: str, info: dict) -> dict:
+        with self._rec_lock:
+            if self._rec and self._rec["lesson_id"] == lid:
+                if self._rec["done"] and self._rec.get("result"):
+                    return self._rec["result"]
+                self._rec["done"] = True
+            dur = float(info.get("duration_s") or 0)
+            status = "recorded" if dur >= 1.0 else "failed"
+            library.update_meta(lid, status=status, duration_s=round(dur, 1))
+            res = {"lesson_id": lid, "audio_path": info["path"], "duration_s": round(dur, 1),
+                   "reason": info.get("reason", "stopped")}
+            if info.get("message"):
+                res["message"] = info["message"]
+            if self._rec and self._rec["lesson_id"] == lid:
+                self._rec["result"] = res
+        return res
+
+    def _rec_finished(self, lid: str, info: dict) -> None:
+        """The recorder stopped by itself (microphone lost, disk full): keep what was recorded."""
+        try:
+            res = self._finalize_recording(lid, info)
+            self._emit("record", {"recording_id": lid, "lesson_id": lid, "state": "stopped", "final": True, **res})
+        except Exception:  # noqa: BLE001
+            log.exception("finishing the recording failed")
 
     # ---- import ---------------------------------------------------------
     def import_transcript(self, path: str | None = None, title: str | None = None) -> dict:
@@ -372,8 +506,10 @@ class Api:
                 seg_lists = [p["segments"] for p in parts]
                 notes = library.load_day_notes(day)
                 recap = notes.get("recap")
+                tgt = [c for c in langs.SUPPORTED
+                       if any(c in langs.lesson_languages(p["segments"], p["meta"]) for p in parts)] or ["ar"]
                 if kind == "recap" or not recap or recap.get("stale"):
-                    recap = self._llm.day_recap(seg_lists, lang, prog, cancel)
+                    recap = self._llm.day_recap(seg_lists, lang, prog, cancel, tgt)
                     recap.update(generated_at=datetime.now().isoformat(timespec="seconds"), lang=lang,
                                  parts=part_ids, stale=False)
                     notes = library.load_day_notes(day)
@@ -384,7 +520,7 @@ class Api:
                     quiz = notes.get("quiz") or {}
                     history = quiz.get("history", [q["question"] for q in quiz.get("questions", [])])
                     norm = llm.norm_ar(" ".join(s["text"] for sl in seg_lists for s in sl))
-                    qs = self._llm.day_quiz(recap, norm, lang, history, 10, prog, cancel)
+                    qs = self._llm.day_quiz(recap, norm, lang, history, 10, prog, cancel, languages=tgt)
                     notes = library.load_day_notes(day)
                     notes["quiz"] = {"questions": qs, "marks": {}, "round": int(quiz.get("round", 0)) + 1,
                                      "history": (history + [q["question"] for q in qs])[-80:],
@@ -438,7 +574,9 @@ class Api:
             self._progress("llm", job_id, None, "Starting assistant")
             with self._llm_lock:
                 self._llm.model_path = None
-                segs = library.get_lesson(lesson_id)["segments"]
+                les = library.get_lesson(lesson_id)
+                segs = les["segments"]
+                tgt = langs.lesson_languages(segs, les["meta"])
                 lang = config.load_settings().get("ui_lang", "en")
 
                 def prog(pct, msg):
@@ -446,16 +584,16 @@ class Api:
 
                 notes = library.load_notes(lesson_id)
                 if kind == "summary":
-                    result = self._llm.summarize(segs, lang, prog, cancel)
+                    result = self._llm.summarize(segs, lang, prog, cancel, tgt)
                     notes["summary"] = result
                 elif kind == "vocab":
-                    result = self._llm.vocab(segs, lang, prog, cancel)
+                    result = self._llm.vocab(segs, lang, prog, cancel, tgt)
                     notes["vocab"] = result
                 elif kind == "classify":
-                    result = self._llm.classify(segs, lang, progress=prog, cancel=cancel)
+                    result = self._llm.classify(segs, lang, progress=prog, cancel=cancel, languages=tgt)
                     notes["outline"] = result
                 else:
-                    result = self._llm.ask(segs, question, lang, prog, cancel)
+                    result = self._llm.ask(segs, question, lang, prog, cancel, tgt)
                     notes["qa"].append({"q": question, "a": result})
                 library.save_notes(lesson_id, notes)
             self._unregister(job_id)
@@ -471,4 +609,9 @@ class Api:
             self._unregister(job_id)
 
     def _shutdown(self) -> None:
+        try:  # closing the window during a recording keeps what was recorded
+            if self._rec and not self._rec["done"]:
+                self.stop_recording()
+        except Exception:  # noqa: BLE001
+            log.exception("stopping the recording at exit failed")
         self._llm.stop()

@@ -1,0 +1,6 @@
+You are helping a student review a recorded Arabic lesson. Below is a transcript produced by automatic speech recognition, so it may contain mistakes. The transcript is the source of truth; do not invent content that is not in it.
+
+Write a clear summary of the lesson in {lang_name}. Use short bullet points grouped under simple headings (topic, key points, examples given, homework if mentioned). Quote Arabic words and phrases in Arabic script exactly as they appear.
+
+Transcript:
+{text}

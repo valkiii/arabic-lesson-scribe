@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Arabic Lesson Scribe</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <button id="brand" class="brand" type="button" data-i18n="app_name"></button>
+  <span id="status-chip" class="chip" hidden></span>
+</header>
+
+<main id="app">
+  <!-- Home -->
+  <section id="view-home" class="view" hidden aria-labelledby="home-title">
+    <h1 id="home-title" class="sr-only" data-i18n="app_name"></h1>
+
+    <div id="firstrun" class="card firstrun" hidden>
+      <h2 data-i18n="fr_title"></h2>
+      <p data-i18n="fr_body"></p>
+      <ul class="plain">
+        <li data-i18n="fr_speech"></li>
+        <li data-i18n="fr_llm"></li>
+      </ul>
+      <p class="muted" data-i18n="fr_offline"></p>
+      <button id="btn-firstrun" class="btn primary" type="button" data-i18n="fr_button"></button>
+    </div>
+
+    <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-describedby="drop-hint">
+      <div class="drop-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
+      </div>
+      <div class="drop-title" data-i18n="drop_title"></div>
+      <div id="drop-hint" class="muted" data-i18n="drop_hint"></div>
+    </div>
+
+    <div class="options">
+      <label class="check"><input type="checkbox" id="opt-mixed"> <span data-i18n="opt_mixed"></span></label>
+      <label class="check"><input type="checkbox" id="opt-best"> <span data-i18n="opt_best"></span></label>
+    </div>
+
+    <h2 class="section" data-i18n="lessons_title"></h2>
+    <ul id="lesson-list" class="lessons"></ul>
+    <p id="lessons-empty" class="muted" data-i18n="lessons_empty" hidden></p>
+  </section>
+
+  <!-- Working -->
+  <section id="view-working" class="view" hidden aria-labelledby="work-title">
+    <h1 id="work-title" class="view-title"></h1>
+    <p id="work-msg" class="muted" role="status" aria-live="polite"></p>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="work-bar"><div class="bar-fill" id="work-fill"></div></div>
+    <div class="bar-meta"><span id="work-pct"></span><span id="work-eta"></span></div>
+    <div id="live" class="transcript live" dir="rtl" lang="ar" aria-live="off"></div>
+    <div class="actions">
+      <button id="btn-cancel" class="btn" type="button" data-i18n="cancel"></button>
+    </div>
+  </section>
+
+  <!-- Lesson -->
+  <section id="view-lesson" class="view wide" hidden aria-labelledby="lesson-title">
+    <div class="lesson-head">
+      <button id="btn-back" class="btn ghost" type="button" data-i18n="back"></button>
+      <div class="lesson-titlebox">
+        <h1 id="lesson-title" class="view-title" tabindex="-1"></h1>
+        <div id="lesson-meta" class="muted"></div>
+      </div>
+      <button id="btn-rename" class="btn ghost" type="button" data-i18n="rename"></button>
+    </div>
+
+    <div class="lesson-grid">
+      <aside class="side" aria-label="Tools">
+        <div class="side-group" role="group">
+          <button class="btn tool" id="btn-summary" type="button" data-i18n="summary"></button>
+          <button class="btn tool" id="btn-vocab" type="button" data-i18n="vocab"></button>
+          <button class="btn tool" id="btn-outline" type="button" data-i18n="outline"></button>
+          <button class="btn tool" id="btn-ask" type="button" data-i18n="ask"></button>
+        </div>
+        <div class="side-group" role="group">
+          <button class="btn" id="btn-copy" type="button" data-i18n="copy"></button>
+          <div class="split">
+            <select id="export-fmt" aria-label="Export format"><option value="txt">TXT</option><option value="md">Markdown</option></select>
+            <button class="btn" id="btn-export" type="button" data-i18n="export"></button>
+          </div>
+          <button class="btn" id="btn-folder" type="button" data-i18n="open_folder"></button>
+          <button class="btn danger ghost" id="btn-delete" type="button" data-i18n="delete"></button>
+        </div>
+        <p class="muted small" data-i18n="ai_warning"></p>
+      </aside>
+
+      <div class="main-col">
+        <div id="ai-panel" class="ai-panel" hidden>
+          <div class="ai-head">
+            <h2 id="ai-title" class="section"></h2>
+            <button id="ai-close" class="btn ghost small" type="button" data-i18n="close"></button>
+          </div>
+          <div id="ai-status" class="muted" role="status" aria-live="polite"></div>
+          <div class="bar slim" id="ai-bar" hidden><div class="bar-fill" id="ai-fill"></div></div>
+          <div id="ai-body"></div>
+          <form id="ask-form" class="ask-form" hidden>
+            <input id="ask-input" type="text" autocomplete="off" data-i18n-ph="ask_placeholder" aria-label="Question">
+            <button class="btn primary" type="submit" data-i18n="ask_send"></button>
+          </form>
+        </div>
+        <div id="transcript" class="transcript" dir="rtl" lang="ar" tabindex="0" aria-label="Transcript"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

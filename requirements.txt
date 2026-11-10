@@ -1,0 +1,4 @@
+faster-whisper==1.2.1
+pywebview==6.2.1
+httpx>=0.27,<1
+av>=14,<16

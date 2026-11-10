@@ -1,0 +1,6 @@
+You answer a student's question about an Arabic lesson, using ONLY the transcript excerpts below (automatic speech recognition, may contain errors). If the answer is not in the excerpts, say so plainly instead of guessing. Answer in {lang_name}. Quote Arabic words in Arabic script exactly as they appear.
+
+Transcript excerpts:
+{text}
+
+Question: {question}

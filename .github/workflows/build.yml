@@ -1,0 +1,115 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the GitHub Release on tags
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyinstaller==6.22.3
+
+      - name: Tests (tiny Whisper model)
+        run: python -m pytest -q
+
+      - name: Fetch llama-server
+        run: python build/fetch_llama.py
+
+      - name: Build app with PyInstaller
+        run: pyinstaller --noconfirm --clean build/ArabicLessonScribe.spec
+
+      # Selftest sample: generated here, never committed or downloaded from a
+      # third party. We synthesize Arabic speech with the Microsoft Edge neural
+      # voice via the edge-tts package (ar-SA-HamedNeural), output is an .mp3 so
+      # PyAV's decoder is exercised inside the frozen exe too. The online service
+      # can occasionally fail; after 3 retries we fall back to a generated tone
+      # (pipeline-only check: exe starts, decodes audio, loads model, emits JSON).
+      - name: Generate Arabic sample
+        shell: pwsh
+        run: |
+          pip install edge-tts
+          $ok = $false
+          for ($i = 1; $i -le 3 -and -not $ok; $i++) {
+            python -m edge_tts --voice ar-SA-HamedNeural --text "بسم الله الرحمن الرحيم. مرحبا بكم في درس اللغة العربية. اليوم نتعلم كلمات جديدة." --write-media sample.mp3
+            if ($LASTEXITCODE -eq 0 -and (Test-Path sample.mp3) -and (Get-Item sample.mp3).Length -gt 5000) { $ok = $true } else { Start-Sleep -Seconds 5 }
+          }
+          if ($ok) { "SAMPLE_KIND=speech" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV }
+          else {
+            Write-Warning "edge-tts unavailable, using tone fallback"
+            python -c "import wave,math,struct; w=wave.open('sample.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(b''.join(struct.pack('<h',int(8000*math.sin(2*math.pi*440*t/16000))) for t in range(16000*3))); w.close()"
+            "SAMPLE_KIND=tone" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          }
+
+      - name: Selftest frozen exe
+        shell: pwsh
+        run: |
+          $sample = if (Test-Path sample.mp3) { "sample.mp3" } else { "sample.wav" }
+          $p = Start-Process -FilePath "dist\ArabicLessonScribe\ArabicLessonScribe.exe" `
+            -ArgumentList "--selftest", (Resolve-Path $sample).Path `
+            -RedirectStandardOutput selftest.out.txt -RedirectStandardError selftest.err.txt `
+            -Wait -PassThru -NoNewWindow
+          Get-Content selftest.out.txt -Raw
+          if (Test-Path selftest.err.txt) { Get-Content selftest.err.txt -Raw }
+          if ($p.ExitCode -ne 0) { throw "selftest exit code $($p.ExitCode)" }
+          $json = Get-Content selftest.out.txt -Raw | ConvertFrom-Json   # must be valid JSON
+          if ($env:SAMPLE_KIND -eq "speech" -and ((Get-Content selftest.out.txt -Raw -Encoding utf8) -notmatch '[؀-ۿ]')) {
+            throw "selftest output contains no Arabic text"
+          }
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compute version
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF -like "refs/tags/v*") { $env:GITHUB_REF_NAME.TrimStart("v") } else { "0.0.0-ci" }
+          "APP_VERSION=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:APP_VERSION" build\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+
+      - name: SHA256
+        shell: pwsh
+        run: |
+          $f = "dist_installer\ArabicLessonScribe-Setup.exe"
+          $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+          "$h  ArabicLessonScribe-Setup.exe" | Out-File -Encoding ascii dist_installer\ArabicLessonScribe-Setup.exe.sha256
+          Get-Content dist_installer\ArabicLessonScribe-Setup.exe.sha256
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ArabicLessonScribe-Setup
+          path: |
+            dist_installer/ArabicLessonScribe-Setup.exe
+            dist_installer/ArabicLessonScribe-Setup.exe.sha256
+
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3.0.4
+        with:
+          files: |
+            dist_installer/ArabicLessonScribe-Setup.exe
+            dist_installer/ArabicLessonScribe-Setup.exe.sha256
+          generate_release_notes: true

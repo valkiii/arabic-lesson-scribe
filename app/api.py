@@ -278,7 +278,9 @@ class Api:
         """Which sources to record. Defaults: computer sound and microphone where loopback exists, else microphone."""
         avail = self._sys_factory is not None or recorder.loopback_available()
         req = opts.get("sources") or {}
-        sysw = bool(req["system"]) if "system" in req else avail
+        # default: record the computer's sound too, but only when an output device exists (else microphone only)
+        has_out = self._sys_factory is not None or (avail and bool(recorder.list_audio_sources().get("outputs")))
+        sysw = bool(req["system"]) if "system" in req else (avail and has_out)
         micw = bool(req["mic"]) if "mic" in req else True
         if not (sysw or micw):
             raise ValueError("NO_SOURCE: switch on at least one source: the computer's sound or your microphone")

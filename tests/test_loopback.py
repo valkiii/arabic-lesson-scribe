@@ -501,3 +501,18 @@ def test_list_audio_cli_prints_json_and_exits_zero(capsys):
     import json
     out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert out["ok"] is True and set(("microphones", "outputs", "loopback_available", "imports")) <= set(out)
+
+
+def test_default_sources_fall_back_to_microphone_when_no_output_device(monkeypatch):
+    from app import api as api_mod, recorder
+    monkeypatch.setattr(recorder, "loopback_available", lambda: True)
+    monkeypatch.setattr(recorder, "list_audio_sources",
+                        lambda: {"microphones": [], "loopback_available": True, "outputs": []})
+    a = api_mod.Api(emit=lambda *_: None)
+    assert a._rec_sources({}) == {"system": False, "mic": True}
+    # an explicit request for computer sound is still honoured (and fails later with a clear NO_OUTPUT)
+    assert a._rec_sources({"sources": {"system": True}})["system"] is True
+    monkeypatch.setattr(recorder, "list_audio_sources",
+                        lambda: {"microphones": [], "loopback_available": True,
+                                 "outputs": [{"id": 1, "name": "Speakers", "default": True}]})
+    assert a._rec_sources({}) == {"system": True, "mic": True}

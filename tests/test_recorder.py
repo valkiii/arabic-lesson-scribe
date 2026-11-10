@@ -12,6 +12,14 @@ import pytest
 from app import api as api_mod
 from app import library, recorder
 
+
+@pytest.fixture(autouse=True)
+def _mic_only_by_default(request, monkeypatch):
+    """These tests describe microphone-only recording; keep them independent of the machine's loopback support."""
+    if "loopback" not in request.node.nodeid:
+        monkeypatch.setattr(recorder, "loopback_available", lambda: False)
+
+
 SR = recorder.SAMPLE_RATE
 
 

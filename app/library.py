@@ -34,15 +34,35 @@ def _write_json(p: Path, data) -> None:
     tmp.replace(p)
 
 
-def fmt_ts(sec: float) -> str:
+def fmt_ts(sec: float | None) -> str:
+    if sec is None:
+        return ""
     sec = int(sec)
     h, r = divmod(sec, 3600)
     m, s = divmod(r, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
-def create_lesson(title: str | None, audio_path: str, language: str | None, model: str) -> str:
+def file_mtime(path: str | None) -> datetime | None:
+    """Local modification time of a file (phone recordings keep the recording time here)."""
+    try:
+        return datetime.fromtimestamp(Path(path).stat().st_mtime) if path else None
+    except OSError:
+        return None
+
+
+def parse_day(day: str) -> str:
+    return datetime.strptime(str(day), "%Y-%m-%d").strftime("%Y-%m-%d")
+
+
+def lesson_day(meta: dict) -> str:
+    return meta.get("day") or str(meta.get("date") or "")[:10]
+
+
+def create_lesson(title: str | None, audio_path: str, language: str | None, model: str,
+                  recorded: datetime | None = None) -> str:
     now = datetime.now()
+    recorded = recorded or now
     base = f"{now:%Y-%m-%d %H.%M} {_safe(title or Path(audio_path).stem)}"
     lid, n = base, 2
     while (config.library_dir() / lid).exists():
@@ -50,42 +70,112 @@ def create_lesson(title: str | None, audio_path: str, language: str | None, mode
         n += 1
     d = config.library_dir() / lid
     d.mkdir(parents=True)
-    meta = {"id": lid, "title": (title or Path(audio_path).stem).strip(), "date": now.isoformat(timespec="seconds"),
-            "audio_path": str(audio_path), "language": language, "model": model, "duration_s": 0,
+    meta = {"id": lid, "title": (title or Path(audio_path).stem).strip(), "date": recorded.isoformat(timespec="seconds"),
+            "day": f"{recorded:%Y-%m-%d}", "created": now.isoformat(timespec="seconds"), "audio_path": str(audio_path), "language": language, "model": model, "duration_s": 0,
             "status": "transcribing"}
     _write_json(d / "meta.json", meta)
     (d / "segments.partial.jsonl").write_text("", encoding="utf-8")
     return lid
 
 
+def create_imported(title: str, segments: list[dict], source: str | None = None,
+                    recorded: datetime | None = None) -> str:
+    """A lesson built from an existing transcript: no audio, status "imported"."""
+    now = datetime.now()
+    recorded = recorded or now
+    title = (title or "Imported transcript").strip()
+    base = f"{now:%Y-%m-%d %H.%M} {_safe(title)}"
+    lid, n = base, 2
+    while (config.library_dir() / lid).exists():
+        lid = f"{base} ({n})"
+        n += 1
+    d = config.library_dir() / lid
+    d.mkdir(parents=True)
+    ends = [s["end"] for s in segments if s.get("end") is not None]
+    meta = {"id": lid, "title": title, "date": recorded.isoformat(timespec="seconds"),
+            "day": f"{recorded:%Y-%m-%d}", "created": now.isoformat(timespec="seconds"), "audio_path": None,
+            "language": None, "model": None, "duration_s": round(max(ends), 1) if ends else 0,
+            "status": "imported", "source_file": source,
+            "preview": " ".join(s["text"] for s in segments[:3])[:140]}
+    _write_json(d / "meta.json", meta)
+    _write_transcript(d, meta, segments)
+    save_notes(lid, load_notes(lid))
+    return lid
+
+
+def update_meta(lesson_id: str, **fields) -> dict:
+    d = _dir(lesson_id)
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+    meta.update(fields)
+    _write_json(d / "meta.json", meta)
+    return meta
+
+
 def append_segment(lesson_id: str, seg: dict) -> None:
+    # open/append/close per segment: the data reaches the OS on every segment, so a crash loses at most one
     with open(_dir(lesson_id) / "segments.partial.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(seg, ensure_ascii=False) + "\n")
+        f.flush()
 
 
-def _read_partial(d: Path) -> list[dict]:
+def _read_partial(d: Path, limit: int | None = None) -> list[dict]:
     p = d / "segments.partial.jsonl"
-    out = []
+    out: list[dict] = []
     if p.exists():
-        for line in p.read_text(encoding="utf-8").splitlines():
-            try:
-                out.append(json.loads(line))
-            except ValueError:
-                pass
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    continue  # torn last line after a crash
+                if limit and len(out) >= limit:
+                    break
     return out
+
+
+def partial_segments(lesson_id: str) -> list[dict]:
+    return _read_partial(_dir(lesson_id))
+
+
+def _write_transcript(d: Path, meta: dict, segments: list[dict]) -> None:
+    _write_json(d / "transcript.json", {"meta": meta, "segments": segments})
+    (d / "transcript.txt").write_text("\n".join(s["text"] for s in segments) + "\n", encoding="utf-8")
+    lines = []
+    for s in segments:
+        ts = fmt_ts(s.get("start"))
+        lines.append(f"**[{ts}]** {s['text']}" if ts else s["text"])
+    (d / "transcript.md").write_text(f"# {meta['title']}\n\n" + "\n\n".join(lines) + "\n", encoding="utf-8")
+
+
+def recover_interrupted() -> int:
+    """At startup: lessons left in 'transcribing' (app closed or crashed) become 'interrupted'
+    when they have partial segments, otherwise 'failed'. Returns how many were changed."""
+    n = 0
+    for d in config.library_dir().iterdir():
+        mp = d / "meta.json"
+        if not mp.is_file():
+            continue
+        try:
+            meta = json.loads(mp.read_text(encoding="utf-8"))
+            if meta.get("status") != "transcribing":
+                continue
+            has = bool(_read_partial(d, 1))
+            meta["status"] = "interrupted" if has else "failed"
+            _write_json(mp, meta)
+            n += 1
+        except (OSError, ValueError):
+            continue
+    return n
 
 
 def finish_lesson(lesson_id: str, segments: list[dict], duration: float, language: str | None) -> None:
     d = _dir(lesson_id)
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     meta.update(duration_s=round(duration or (segments[-1]["end"] if segments else 0), 1),
-                status="done", detected_language=language)
+                status="done", detected_language=language,
+                preview=" ".join(s["text"] for s in segments[:3])[:140])
     _write_json(d / "meta.json", meta)
-    _write_json(d / "transcript.json", {"meta": meta, "segments": segments})
-    (d / "transcript.txt").write_text("\n".join(s["text"] for s in segments) + "\n", encoding="utf-8")
-    (d / "transcript.md").write_text(
-        f"# {meta['title']}\n\n" + "\n\n".join(f"**[{fmt_ts(s['start'])}]** {s['text']}" for s in segments) + "\n",
-        encoding="utf-8")
+    _write_transcript(d, meta, segments)
     (d / "segments.partial.jsonl").unlink(missing_ok=True)
     save_notes(lesson_id, load_notes(lesson_id))
 
@@ -130,7 +220,8 @@ def save_notes(lesson_id: str, notes: dict) -> None:
     if notes.get("outline"):
         md.append("## Outline\n")
         for o in notes["outline"]:
-            md.append(f"- [{fmt_ts(o['start'])}] {o.get('kind', '')}: {o.get('summary', '')}")
+            ts = fmt_ts(o.get("start"))
+            md.append(f"- {'[' + ts + '] ' if ts else ''}{o.get('kind', '')}: {o.get('summary', '')}")
         md.append("")
     if notes.get("qa"):
         md.append("## Questions\n")
@@ -147,6 +238,8 @@ def get_lesson(lesson_id: str) -> dict:
         segs = json.loads(tj.read_text(encoding="utf-8")).get("segments", [])
     else:
         segs = _read_partial(d)
+    ap = meta.get("audio_path")
+    meta["audio_ok"] = bool(ap and Path(ap).is_file())
     return {"meta": meta, "segments": segs, "notes": load_notes(lesson_id)}
 
 
@@ -158,15 +251,117 @@ def list_lessons() -> list[dict]:
             continue
         try:
             meta = json.loads(mp.read_text(encoding="utf-8"))
-            segs = json.loads((d / "transcript.json").read_text(encoding="utf-8"))["segments"] \
-                if (d / "transcript.json").exists() else _read_partial(d)
+            if "preview" in meta:
+                preview = meta["preview"]
+            elif (d / "transcript.json").exists():
+                segs = json.loads((d / "transcript.json").read_text(encoding="utf-8"))["segments"]
+                preview = " ".join(s["text"] for s in segs[:3])[:140]
+            else:
+                preview = " ".join(s["text"] for s in _read_partial(d, 3))[:140]
         except (OSError, ValueError, KeyError):
             continue
-        out.append({"id": meta["id"], "title": meta.get("title", d.name), "date": meta.get("date"),
+        out.append({"id": meta["id"], "day": lesson_day(meta), "title": meta.get("title", d.name), "date": meta.get("date"),
                     "duration_s": meta.get("duration_s", 0), "status": meta.get("status"),
-                    "preview": " ".join(s["text"] for s in segs[:3])[:140]})
+                    "preview": preview})
     out.sort(key=lambda x: x["date"] or "", reverse=True)
     return out
+
+
+def set_lesson_date(lesson_id: str, day: str) -> dict:
+    """Move a recording to another lesson day (keeps its time of day and its folder)."""
+    day = parse_day(day)
+    d = _dir(lesson_id)
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
+    old = lesson_day(meta)
+    tod = str(meta.get("date") or "")[10:] or "T12:00:00"
+    meta.update(day=day, date=f"{day}{tod}")
+    _write_json(d / "meta.json", meta)
+    if (d / "transcript.json").exists():
+        tj = json.loads((d / "transcript.json").read_text(encoding="utf-8"))
+        tj["meta"] = meta
+        _write_json(d / "transcript.json", tj)
+    return {"id": lesson_id, "day": day, "old_day": old}
+
+
+# ---- lesson days -------------------------------------------------------------
+_DAYNAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def day_title(day: str) -> str:
+    dt = datetime.strptime(day, "%Y-%m-%d")
+    return f"{_DAYNAMES[dt.weekday()]} {dt.day} {_MONTHS[dt.month - 1]}"
+
+
+def _days_dir() -> Path:
+    p = config.library_dir() / "_days"
+    p.mkdir(exist_ok=True)
+    return p
+
+
+def load_day_notes(day: str) -> dict:
+    day = parse_day(day)
+    try:
+        n = json.loads((_days_dir() / f"{day}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        n = {}
+    return n
+
+
+def save_day_notes(day: str, notes: dict) -> None:
+    _write_json(_days_dir() / f"{parse_day(day)}.json", notes)
+
+
+def mark_day_stale(day: str) -> bool:
+    """A part was added/changed/moved: the day's recap no longer covers everything."""
+    notes = load_day_notes(day)
+    if notes.get("recap") and not notes["recap"].get("stale"):
+        notes["recap"]["stale"] = True
+        save_day_notes(day, notes)
+        return True
+    return False
+
+
+def day_parts(day: str) -> list[dict]:
+    """Lessons of that day, in recording order."""
+    day = parse_day(day)
+    parts = [l for l in list_lessons() if l.get("day") == day]
+    parts.sort(key=lambda l: (l.get("date") or "", l["id"]))
+    return parts
+
+
+def list_days() -> list[dict]:
+    by: dict[str, list[dict]] = {}
+    for l in list_lessons():
+        if l.get("day"):
+            by.setdefault(l["day"], []).append(l)
+    out = []
+    for day in sorted(by, reverse=True):
+        try:
+            title = day_title(day)
+        except ValueError:
+            continue
+        parts = sorted(by[day], key=lambda l: (l.get("date") or "", l["id"]))
+        n = load_day_notes(day)
+        out.append({"date": day, "title": title, "parts": parts,
+                    "has_recap": bool(n.get("recap")), "recap_stale": bool((n.get("recap") or {}).get("stale")),
+                    "has_quiz": bool((n.get("quiz") or {}).get("questions")),
+                    "total_duration_s": round(sum(p.get("duration_s") or 0 for p in parts), 1)})
+    return out
+
+
+def get_day(day: str) -> dict:
+    day = parse_day(day)
+    parts = day_parts(day)
+    seg_by = {}
+    for p in parts:
+        try:
+            seg_by[p["id"]] = get_lesson(p["id"])["segments"]
+        except (OSError, ValueError):
+            seg_by[p["id"]] = []
+    n = load_day_notes(day)
+    return {"date": day, "title": day_title(day), "parts": parts, "segments_by_part": seg_by,
+            "notes": {"recap": n.get("recap"), "quiz": n.get("quiz")}}
 
 
 def rename_lesson(lesson_id: str, title: str) -> dict:

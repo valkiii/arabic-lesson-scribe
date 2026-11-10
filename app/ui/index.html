@@ -37,13 +37,16 @@
       <div id="drop-hint" class="muted" data-i18n="drop_hint"></div>
     </div>
 
+    <p class="import-line"><span class="muted" data-i18n="import_q"></span> <button id="btn-import" class="linkbtn" type="button" data-i18n="import_link"></button></p>
+
     <div class="options">
       <label class="check"><input type="checkbox" id="opt-mixed"> <span data-i18n="opt_mixed"></span></label>
+      <label class="check"><input type="checkbox" id="opt-auto"> <span data-i18n="opt_auto"></span></label>
       <label class="check"><input type="checkbox" id="opt-best"> <span data-i18n="opt_best"></span></label>
     </div>
 
     <h2 class="section" data-i18n="lessons_title"></h2>
-    <ul id="lesson-list" class="lessons"></ul>
+    <div id="day-list"></div>
     <p id="lessons-empty" class="muted" data-i18n="lessons_empty" hidden></p>
   </section>
 
@@ -53,9 +56,43 @@
     <p id="work-msg" class="muted" role="status" aria-live="polite"></p>
     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="work-bar"><div class="bar-fill" id="work-fill"></div></div>
     <div class="bar-meta"><span id="work-pct"></span><span id="work-eta"></span></div>
+    <div class="bar-meta"><span id="work-elapsed"></span><span></span></div>
     <div id="live" class="transcript live" dir="rtl" lang="ar" aria-live="off"></div>
     <div class="actions">
       <button id="btn-cancel" class="btn" type="button" data-i18n="cancel"></button>
+    </div>
+  </section>
+
+  <!-- Day -->
+  <section id="view-day" class="view wide" hidden aria-labelledby="day-title">
+    <div class="lesson-head">
+      <button id="btn-day-back" class="btn ghost" type="button" data-i18n="back"></button>
+      <div class="lesson-titlebox">
+        <h1 id="day-title" class="view-title" tabindex="-1"></h1>
+        <div id="day-meta" class="muted"></div>
+      </div>
+    </div>
+    <div class="lesson-grid">
+      <aside class="side" aria-label="Tools">
+        <div class="side-group" role="group">
+          <button class="btn tool" id="btn-recap" type="button" data-i18n="recap"></button>
+          <button class="btn tool" id="btn-quiz" type="button" data-i18n="quiz"></button>
+        </div>
+        <div class="side-group" role="group">
+          <button class="btn" id="btn-save-recap" type="button" data-i18n="save_recap"></button>
+          <button class="btn" id="btn-print-ans" type="button" data-i18n="print_ans"></button>
+          <button class="btn" id="btn-print-noans" type="button" data-i18n="print_noans"></button>
+        </div>
+        <p class="muted small" data-i18n="ai_warning"></p>
+      </aside>
+      <div class="main-col">
+        <div id="day-panel" class="ai-panel">
+          <div id="day-status" class="muted" role="status" aria-live="polite"></div>
+          <div class="bar slim" id="day-bar" hidden><div class="bar-fill" id="day-fill"></div></div>
+          <div id="day-body"></div>
+        </div>
+        <div id="day-transcript" class="transcript" dir="rtl" lang="ar" aria-label="Transcript"></div>
+      </div>
     </div>
   </section>
 
@@ -67,6 +104,9 @@
         <h1 id="lesson-title" class="view-title" tabindex="-1"></h1>
         <div id="lesson-meta" class="muted"></div>
       </div>
+      <button id="btn-day" class="btn ghost" type="button" data-i18n="open_day"></button>
+      <button id="btn-redate" class="btn ghost" type="button" data-i18n="change_day"></button>
+      <input id="lesson-date" type="date" hidden aria-label="Lesson day">
       <button id="btn-rename" class="btn ghost" type="button" data-i18n="rename"></button>
     </div>
 
@@ -103,6 +143,10 @@
             <input id="ask-input" type="text" autocomplete="off" data-i18n-ph="ask_placeholder" aria-label="Question">
             <button class="btn primary" type="submit" data-i18n="ask_send"></button>
           </form>
+        </div>
+        <div id="resume-box" class="resume" hidden>
+          <p id="resume-msg" class="muted"></p>
+          <button id="btn-resume" class="btn primary" type="button" data-i18n="resume"></button>
         </div>
         <div id="transcript" class="transcript" dir="rtl" lang="ar" tabindex="0" aria-label="Transcript"></div>
       </div>

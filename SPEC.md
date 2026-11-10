@@ -82,3 +82,16 @@ side panel with buttons Summary / Vocabulary / Outline / Ask a question (chat bo
 - `pytest` passes on macOS (dev) and Windows (CI) using Systran/faster-whisper-tiny + a ≤20 s Arabic sample (generate via macOS `say -v Majed`/Tarik if available, or commit a small CC0 clip; check licence) — if no sample obtainable in dev, tests must skip cleanly.
 - Headless smoke mode: `ArabicLessonScribe.exe --selftest <audio>` transcribes with tiny model, prints JSON, exit 0 — used by CI against the frozen exe.
 - No telemetry. No network except model/binary download hosts (huggingface.co, github.com) and 127.0.0.1.
+
+## Addendum: import, resume, lesson days (implemented)
+- `import_transcript(path=None, title=None)` -> {lesson_id} (.txt .md .srt .vtt; dialog if no path; {lesson_id:null} if cancelled). Status "imported", no audio, start/end may be null.
+- `resume_transcription(lesson_id, path=None)`: continues an interrupted/cancelled/failed lesson from the last saved segment (faster-whisper clip_timestamps, absolute timestamps, no VAD on the resumed part). Startup marks leftover "transcribing" lessons "interrupted". `get_lesson().meta.audio_ok` says if the recording is still there; pass `path` if it moved.
+- Progress events may carry `elapsed_s` and `eta_s` (rate = audio seconds per wall second, shown after ~2 min of audio).
+- Lesson days: a part's day is `meta.day` (default the audio/import file's modified time; fallback date[:10]).
+  - `list_days()` -> [{date, title, parts, has_recap, recap_stale, has_quiz, total_duration_s}] newest first; `get_state()` also returns `days`.
+  - `get_day(date)` -> {date, title, parts, segments_by_part:{lesson_id:[segments]}, notes:{recap, quiz}}.
+  - `set_lesson_date(lesson_id, 'YYYY-MM-DD')` moves a part (folders unchanged) and marks affected recaps stale.
+  - Day notes live in `<library>/_days/YYYY-MM-DD.json` (recap, quiz with marks and history), never in part folders.
+  - `ai_day_recap(date)` -> {job_id:"recap:DATE"}; `ai_day_quiz(date, {more})` -> {job_id:"quiz:DATE"} or {job_id:null, cached:true}. Both finish with `done` {job:"llm", kind, date, ok, result}. Recap = map-reduce over all parts (JSON schema: topic, taught, focus, vocab, grammar, homework, unclear_note); quiz = exactly 10 validated, de-duplicated questions {id,type,question,options?,answer,explanation,source_hint}; "more" avoids earlier questions.
+  - `set_quiz_mark(date, question_id, 'right'|'wrong'|null)`; `export_day(date, fmt='md'|'html', with_answers=True, what='all'|'recap'|'quiz')` -> {path}; `open_file(path)` (library files only).
+  - settings.auto_recap (default true): when a part finishes or is imported and the assistant is already installed, the day recap is (re)made automatically; never auto-downloads the 2.8 GB model.

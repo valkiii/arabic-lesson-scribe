@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import hashlib
 import json
 import logging
 import os
@@ -21,7 +22,9 @@ from . import config
 log = logging.getLogger(__name__)
 
 CHUNK_TOKENS = 3000
-CHARS_PER_TOKEN = 2.5  # conservative for Arabic
+CHARS_PER_TOKEN = 2.0  # conservative: Arabic is token-heavy with Gemma (real ratio is about 2.5-3.5)
+N_CTX = 8192
+OUTLINE_CHUNK_TOKENS = 900  # ~2 minutes of speech; used when segments carry no timestamps
 LANG_NAMES = {"en": "English", "it": "Italian"}
 LABELS = ("vocabulary", "grammar", "dialogue", "explanation", "homework", "other")
 SAMPLING = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
@@ -71,7 +74,10 @@ def chunk_segments(segments: list[dict], max_tokens: int = CHUNK_TOKENS) -> list
 
 
 def chunk_by_time(segments: list[dict], window_s: float = 120.0) -> list[list[dict]]:
-    """Group segments into ~window_s windows (for classification/outline)."""
+    """Group segments into ~window_s windows (for classification/outline).
+    Without timestamps (imported plain text) fall back to token-sized groups."""
+    if any(s.get("start") is None for s in segments):
+        return chunk_segments(segments, OUTLINE_CHUNK_TOKENS)
     out: list[list[dict]] = []
     cur: list[dict] = []
     start = None
@@ -103,6 +109,163 @@ def extract_json(text: str):
             except ValueError:
                 continue
     raise ValueError("no JSON in model reply")
+
+
+# ---- day recap / quiz helpers ---------------------------------------------
+_DIAC = re.compile(r"[\u064B-\u0652\u0670\u0640]")
+_ARW = re.compile(r"[\u0600-\u06FF]+")
+RECAP_CAPS = {"taught": 10, "focus": 7, "vocab": 25, "grammar": 8, "homework": 8}
+QUIZ_TYPES = ("translate_from_arabic", "translate_to_arabic", "fill_blank", "multiple_choice", "grammar")
+_TYPE_ALIASES = {"translate_ar_to_native": "translate_from_arabic", "translate_arabic": "translate_from_arabic",
+                 "translate_from_ar": "translate_from_arabic", "translate_to_ar": "translate_to_arabic",
+                 "translate_into_arabic": "translate_to_arabic", "fill_in_the_blank": "fill_blank",
+                 "fill_in_blank": "fill_blank", "mcq": "multiple_choice", "multiple-choice": "multiple_choice"}
+
+
+def norm_ar(text: str) -> str:
+    t = _DIAC.sub("", str(text or ""))
+    return t.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا").replace("ى", "ي").replace("ة", "ه")
+
+
+def in_transcript(arabic: str, norm_text: str) -> bool:
+    """True when every Arabic word (3+ letters, without the article) of `arabic` occurs in the transcript."""
+    for w in _ARW.findall(norm_ar(arabic)):
+        w = w[2:] if w.startswith("ال") and len(w) > 4 else w
+        if len(w) >= 3 and w not in norm_text:
+            return False
+    return True
+
+
+def extract_objects(text: str) -> list[dict]:
+    """Repair helper: collect every complete JSON object in a (possibly truncated or chatty) reply."""
+    dec, out, i = json.JSONDecoder(), [], 0
+    while True:
+        i = text.find("{", i)
+        if i == -1:
+            return out
+        try:
+            obj, end = dec.raw_decode(text, i)
+            out.append(obj)
+            i = end
+        except ValueError:
+            i += 1
+
+
+def parse_list(text: str, key_hint: str = "questions") -> list[dict]:
+    try:
+        data = extract_json(text)
+        if isinstance(data, dict):
+            data = next((v for v in data.values() if isinstance(v, list)), [data])
+        if isinstance(data, list):
+            return [d for d in data if isinstance(d, dict)]
+    except ValueError:
+        pass
+    objs = extract_objects(text)
+    if len(objs) == 1 and isinstance(objs[0].get(key_hint), list):
+        return [d for d in objs[0][key_hint] if isinstance(d, dict)]
+    return [o for o in objs if "question" in o]
+
+
+def _strs(v, cap: int) -> list[str]:
+    if isinstance(v, str):
+        v = [v]
+    if not isinstance(v, list):
+        return []
+    return [str(x).strip() for x in v if isinstance(x, (str, int, float)) and str(x).strip()][:cap]
+
+
+def clean_recap(d: dict) -> dict:
+    """Coerce a model reply into the recap schema."""
+    out = {"topic": str(d.get("topic", "") or "").strip(),
+           "taught": _strs(d.get("taught"), RECAP_CAPS["taught"]),
+           "focus": _strs(d.get("focus"), RECAP_CAPS["focus"]),
+           "grammar": _strs(d.get("grammar"), RECAP_CAPS["grammar"]),
+           "homework": _strs(d.get("homework"), RECAP_CAPS["homework"]),
+           "unclear_note": str(d.get("unclear_note", "") or "").strip(), "vocab": []}
+    seen = set()
+    for v in d.get("vocab") or []:
+        if not isinstance(v, dict) or not str(v.get("arabic", "")).strip():
+            continue
+        ar = str(v["arabic"]).strip()
+        if ar in seen:
+            continue
+        seen.add(ar)
+        out["vocab"].append({"arabic": ar, "meaning": str(v.get("meaning", "") or "").strip(),
+                             "transliteration": str(v.get("transliteration", "") or "").strip()})
+    out["vocab"] = out["vocab"][:RECAP_CAPS["vocab"]]
+    return out
+
+
+def merge_recaps(parts: list[dict]) -> dict:
+    """Deterministic merge (fallback when model reduction does not converge)."""
+    out = {"topic": " ".join(p.get("topic", "") for p in parts[:2]).strip(), "unclear_note": "",
+           "taught": [], "focus": [], "vocab": [], "grammar": [], "homework": []}
+    for p in parts:
+        for k in ("taught", "focus", "grammar", "homework"):
+            out[k] += [x for x in p.get(k, []) if x not in out[k]]
+        out["vocab"] += [v for v in p.get("vocab", []) if v["arabic"] not in {x["arabic"] for x in out["vocab"]}]
+        out["unclear_note"] = out["unclear_note"] or p.get("unclear_note", "")
+    return clean_recap(out)
+
+
+def compact_json(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+
+
+def _fit(d: dict, max_tokens: int) -> str:
+    """Serialise recap material, dropping the tail of the longest lists until it fits the budget."""
+    d = {k: (list(v) if isinstance(v, list) else v) for k, v in d.items()}
+    while est_tokens(compact_json(d)) > max_tokens:
+        k = max((k for k in d if isinstance(d[k], list) and d[k]), key=lambda k: len(compact_json(d[k])), default=None)
+        if k is None:
+            break
+        d[k].pop()
+    return compact_json(d)
+
+
+def validate_question(q: dict, norm_text: str | None = None) -> dict | None:
+    """Return a clean question dict, or None if it is malformed / not grounded in the transcript."""
+    if not isinstance(q, dict):
+        return None
+    typ = str(q.get("type", "")).strip().lower().replace(" ", "_")
+    typ = _TYPE_ALIASES.get(typ, typ)
+    question = str(q.get("question", "") or "").strip()
+    answer = q.get("answer")
+    if typ not in QUIZ_TYPES or not question or answer is None or not str(answer).strip():
+        return None
+    answer = str(answer).strip()
+    out = {"type": typ, "question": question, "explanation": str(q.get("explanation", "") or "").strip(),
+           "source_hint": str(q.get("source_hint", "") or "").strip()}
+    if typ == "multiple_choice":
+        opts = [str(o).strip() for o in (q.get("options") or []) if str(o).strip()]
+        opts = list(dict.fromkeys(opts))
+        if len(opts) != 4:
+            return None
+        if answer not in opts:
+            m = re.fullmatch(r"\(?([A-Da-d1-4])[).:]?", answer)
+            if m:
+                c = m.group(1).upper()
+                answer = opts["ABCD".index(c)] if c in "ABCD" else opts[int(c) - 1]
+            else:
+                hit = [o for o in opts if o.lower() == answer.lower()]
+                if not hit:
+                    return None
+                answer = hit[0]
+        out["options"] = opts
+    if typ == "fill_blank" and "_" not in question and "…" not in question:
+        return None
+    out["answer"] = answer
+    if norm_text is not None:
+        # the Arabic the student is asked to know must come from the lesson
+        arabic = answer if typ in ("translate_to_arabic", "fill_blank", "multiple_choice") else ""
+        arabic += " " + (question if typ in ("translate_from_arabic", "fill_blank") else "")
+        if not in_transcript(arabic, norm_text):
+            return None
+    return out
+
+
+def question_key(text: str) -> str:
+    return re.sub(r"[\W_]+", " ", norm_ar(text).lower()).strip()
 
 
 def _free_port() -> int:
@@ -255,6 +418,7 @@ class LlmClient:
                  cancel: threading.Event | None = None) -> list[dict]:
         windows = chunk_by_time(segments, window_s)
         out = []
+        idx = 0  # index of the window's first segment (lets the UI jump even without timestamps)
         for i, w in enumerate(windows):
             if progress:
                 progress(i / max(len(windows), 1) * 100, f"Outline {i + 1} of {len(windows)}")
@@ -271,7 +435,9 @@ class LlmClient:
                 pass
             if label not in LABELS:
                 label = "other"
-            out.append({"start": w[0]["start"], "end": w[-1]["end"], "kind": label, "summary": topic})
+            out.append({"start": w[0].get("start"), "end": w[-1].get("end"), "index": idx,
+                        "kind": label, "summary": topic})
+            idx += len(w)
         return out
 
     def ask(self, segments: list[dict], question: str, ui_lang: str = "en",
@@ -290,5 +456,103 @@ class LlmClient:
                 notes.append(r)
         # keep the final context within budget
         text = "\n\n".join(notes) or "(nothing relevant found)"
-        text = text[: int(CHUNK_TOKENS * CHARS_PER_TOKEN * 1.5)]
+        text = text[: int(CHUNK_TOKENS * CHARS_PER_TOKEN)]
         return self.chat(render("qa", ui_lang, text=text, question=question), cancel=cancel)
+
+    # ---- day recap and quiz -------------------------------------------------
+    def _chat_json(self, prompt: str, max_tokens: int, cancel) -> dict:
+        last = None
+        for _ in range(2):  # one retry on unparsable output
+            reply = self.chat(prompt, max_tokens, cancel)
+            try:
+                d = extract_json(reply)
+                if isinstance(d, dict):
+                    return d
+            except ValueError as e:
+                last = e
+        raise RuntimeError(f"The assistant did not return usable notes ({last})")
+
+    def day_recap(self, parts: list[list[dict]], ui_lang: str = "en",
+                  progress: Callable[[float, str], None] | None = None,
+                  cancel: threading.Event | None = None) -> dict:
+        """Map-reduce over the transcripts of all parts of a day. Returns the cleaned recap schema."""
+        chunks: list[list[dict]] = []
+        for segs in parts:  # chunk each part on its own so a chunk never straddles two recordings
+            chunks += chunk_segments(segs)
+        if not chunks:
+            raise ValueError("Nothing to summarise")
+        norm_all = norm_ar(" ".join(chunk_text(c) for c in chunks))
+        if len(chunks) == 1:
+            res = clean_recap(self._chat_json(render("day_recap", ui_lang, text=chunk_text(chunks[0])), 1500, cancel))
+        else:
+            notes = []
+            for i, c in enumerate(chunks):
+                if progress:
+                    progress(i / (len(chunks) + 2) * 100, f"Reading part {i + 1} of {len(chunks)}")
+                notes.append(clean_recap(self._chat_json(render("day_recap", ui_lang, text=chunk_text(c)), 1200, cancel)))
+            level = 0
+            while len(notes) > 1:
+                level += 1
+                groups, cur = [], []
+                for n in notes:
+                    if cur and est_tokens(compact_json(cur + [n])) > CHUNK_TOKENS:
+                        groups.append(cur)
+                        cur = []
+                    cur.append(n)
+                groups.append(cur)
+                if len(groups) >= len(notes) or level > 6:  # not shrinking: merge in code
+                    notes = [merge_recaps(notes)]
+                    break
+                if progress:
+                    progress(80 + min(level, 3) * 5, "Combining")
+                notes = [clean_recap(self._chat_json(
+                    render("day_recap_reduce", ui_lang, text=compact_json(g)), 1800, cancel)) if len(g) > 1 else g[0]
+                    for g in groups]
+            res = notes[0]
+            if len(chunks) > 1 and progress:
+                progress(95, "Combining")
+        # drop vocabulary the transcript does not contain (the model must copy it, not invent it)
+        res["vocab"] = [v for v in res["vocab"] if in_transcript(v["arabic"], norm_all)]
+        return res
+
+    def day_quiz(self, recap: dict, norm_text: str, ui_lang: str = "en", previous: list[str] | None = None,
+                 count: int = 10, progress: Callable[[float, str], None] | None = None,
+                 cancel: threading.Event | None = None, max_calls: int = 4) -> list[dict]:
+        """Exactly `count` validated, de-duplicated questions (raises if the model cannot deliver)."""
+        material = _fit({k: recap.get(k) for k in ("topic", "taught", "focus", "vocab", "grammar") if recap.get(k)}, 2400)
+        seen = {question_key(p) for p in (previous or [])}
+        good: list[dict] = []
+        for call in range(max_calls):
+            need = count - len(good)
+            if need <= 0:
+                break
+            if progress:
+                progress(call / max_calls * 100, "Writing questions")
+            avoid_list = [p for p in (previous or [])] + [g["question"] for g in good]
+            prev_txt = ""
+            if avoid_list:
+                lines, total = [], 0
+                for a in reversed(avoid_list):  # most recent first, capped to keep the prompt small
+                    a = a[:90]
+                    if total + len(a) > 1200:
+                        break
+                    lines.append("- " + a)
+                    total += len(a) + 2
+                prev_txt = render("quiz_avoid", ui_lang, previous="\n".join(lines))
+            prompt = render("quiz", ui_lang, count=need if call else count, avoid=prev_txt, text=material)
+            reply = self.chat(prompt, 2600, cancel)
+            for raw in parse_list(reply):
+                q = validate_question(raw, norm_text)
+                if not q:
+                    continue
+                k = question_key(q["question"])
+                if k in seen:
+                    continue
+                seen.add(k)
+                good.append(q)
+        if len(good) < count:
+            raise RuntimeError(f"The assistant could only make {len(good)} valid questions. Please try again.")
+        good = good[:count]
+        for q in good:
+            q["id"] = "q" + hashlib.md5(question_key(q["question"]).encode("utf-8")).hexdigest()[:8]
+        return good

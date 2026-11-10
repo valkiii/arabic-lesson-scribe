@@ -53,6 +53,7 @@ DEFAULT_SETTINGS = {
     "ui_lang": "en",
     "model": "fast",
     "mixed_languages": False,
+    "auto_recap": True,
 }
 
 

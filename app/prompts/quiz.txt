@@ -1,0 +1,14 @@
+You write practice questions for a student of Arabic. Use ONLY the notes below, which summarise what was taught in one day of lessons (made from an automatic transcript). Do not use words, rules or facts that are not in the notes.
+
+Write exactly {count} questions. Instructions and explanations are in {lang_name}; Arabic stays in Arabic script. Mix these types, about equally: "translate_from_arabic" (an Arabic word or sentence to translate into {lang_name}), "translate_to_arabic" (a {lang_name} word or sentence to translate into Arabic), "fill_blank" (an Arabic sentence with ____ to complete), "multiple_choice" (exactly 4 options, exactly one correct), "grammar" (a usage or grammar question about a point from the notes).
+
+Reply with ONLY a JSON array, no other text. Each item is an object with keys:
+"type": one of the five type names above,
+"question": the question text,
+"options": a list of 4 strings (only for multiple_choice),
+"answer": the correct answer (for multiple_choice, the full text of the correct option),
+"explanation": one short sentence explaining the answer,
+"source_hint": a few words saying which part of the lesson it comes from.
+{avoid}
+Notes:
+{text}

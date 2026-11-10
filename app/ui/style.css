@@ -131,3 +131,33 @@ select, input[type="text"] { font: 14px var(--ui); padding: 9px 10px; border-rad
 [tabindex="-1"]:focus { outline: none; }
 .seg { unicode-bidi: isolate; }
 .vocab td:first-child { width: 42%; } .vocab .ar { text-align: left; }
+
+.import-line { text-align: center; margin: 14px 0 0; font-size: 14px; }
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.linkbtn:hover { filter: brightness(1.15); }
+.resume { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.resume p { margin: 0; }
+.lesson-item .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; margin-inline-start: 8px; font-weight: 400; }
+.seg.nots { cursor: default; }
+
+.day { margin-top: 28px; }
+.day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 6px 4px; color: inherit; font: inherit; cursor: pointer; text-align: start; }
+.day-head:hover .day-title { color: var(--accent); }
+.day-title { font-weight: 600; font-size: 16px; }
+.day-head .d { color: var(--muted); font-size: 13px; }
+.day .lessons { margin-top: 4px; }
+.part-sep { display: flex; align-items: center; gap: 12px; margin: 28px 0 8px; font: 13px var(--ui); color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; direction: ltr; }
+.part-sep:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+.rc h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 24px 0 8px; }
+.rc ul { margin: 0; padding-inline-start: 20px; } .rc li { margin: 4px 0; }
+.rc .topic { font-size: 17px; }
+.notice { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; background: var(--accent-soft); }
+.cta { margin: 8px 0; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.qcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 12px 0; background: var(--surface); }
+.qcard .qt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.qcard .qq { font-size: 17px; margin: 6px 0; white-space: pre-wrap; }
+.qcard ol { margin: 6px 0; padding-inline-start: 24px; list-style: upper-alpha; }
+.qcard .qa { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.qcard .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.qcard .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.score { font-weight: 600; margin: 12px 0; }

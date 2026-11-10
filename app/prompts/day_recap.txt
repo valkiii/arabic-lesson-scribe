@@ -1,0 +1,15 @@
+You are helping a student review one day of Arabic lessons. Below is a transcript (or one part of it) produced by automatic speech recognition, so it may contain mistakes. The transcript is the only source of truth: do not invent anything that is not in it. If a passage is unclear or garbled, say so in "unclear_note" instead of guessing.
+
+Write the notes in {lang_name}. Quote Arabic words and phrases in Arabic script exactly as they appear in the transcript.
+
+Reply with ONLY a JSON object, no other text, with these keys:
+"topic": 1 to 2 sentences on what the lesson was about,
+"taught": a list of short bullet strings: what was taught,
+"focus": a list of 4 to 7 concrete, checkable points the student should have learned, each phrased like "You can use X to say Y" or "You know that ...",
+"vocab": a list of objects {{"arabic": "...", "meaning": "...", "transliteration": "..."}} for the key words and phrases the teacher explained or used,
+"grammar": a list of short strings, one per grammar point explained,
+"homework": a list of strings with homework or things to review ONLY if the teacher mentioned them; otherwise an empty list,
+"unclear_note": an empty string, or one sentence saying which parts were unclear.
+
+Transcript:
+{text}

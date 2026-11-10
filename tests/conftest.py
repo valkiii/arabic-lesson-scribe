@@ -33,3 +33,13 @@ def arabic_sample() -> Path:
             subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI16@16000", str(aiff), str(wav)], check=True)
             return wav
     pytest.skip("no Arabic sample available (put one at tests/.cache/sample_ar.wav)")
+
+
+def pytest_collection_modifyitems(config, items):
+    # tests marked "long" (an hour of audio) only run with ALS_RUN_LONG=1
+    if os.environ.get("ALS_RUN_LONG") == "1":
+        return
+    skip = pytest.mark.skip(reason="long test: set ALS_RUN_LONG=1")
+    for it in items:
+        if "long" in it.keywords:
+            it.add_marker(skip)

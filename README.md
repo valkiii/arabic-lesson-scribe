@@ -9,7 +9,7 @@ is the one-time download of the models (huggingface.co) and the installer prereq
 
 Get `ArabicLessonScribe-Setup.exe` from the latest
 [GitHub Release](../../releases/latest). Run it; no administrator rights are needed.
-The step-by-step guide for end users is in [docs/FOR_THE_USER.md](docs/FOR_THE_USER.md).
+The step-by-step guide for end users is in [docs/FOR_THE_USER.md](docs/FOR_THE_USER.md). The full instruction set (release, Windows testing checklist, user steps, troubleshooting) is in [docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md).
 
 The installer is **unsigned**, so Windows SmartScreen may show "Windows protected your PC".
 Click **More info**, then **Run anyway**. Some antivirus programs flag freshly built PyInstaller

@@ -19,9 +19,42 @@
     l1: { meta: { id: "l1", title: "Past and present verbs", date: "2026-11-03T18:30:00", duration_s: 2700 },
       segments: SEGS.map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } }
   };
+  // an interrupted lesson (original recording present) and one whose recording moved (?moved=1 is not needed: l_moved)
+  lessons.l_int = { meta: { id: "l_int", title: "Lesson 11 (interrupted)", date: "2026-11-05T18:30:00", duration_s: 3600, status: "interrupted",
+    audio_path: "C:\\Users\\Sara\\Recordings\\lesson11.m4a", audio_ok: true },
+    segments: SEGS.slice(0, 4).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+  lessons.l_moved = { meta: { id: "l_moved", title: "Lesson 10 (recording moved)", date: "2026-11-04T18:30:00", duration_s: 1800, status: "interrupted",
+    audio_path: "D:\\old\\lesson10.m4a", audio_ok: false },
+    segments: SEGS.slice(0, 3).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+  lessons.l1b = { meta: { id: "l1b", title: "Past and present verbs, part 2", date: "2026-11-03T20:10:00", duration_s: 900, status: "done" },
+    segments: SEGS.slice(5).map((text, i) => ({ start: i * 12, end: i * 12 + 11, text })), notes: { qa: [] } };
+  const dayNotes = {};
+  const dayOf = l => l.meta.day || String(l.meta.date).slice(0, 10);
+  const partsOf = day => Object.values(lessons).filter(l => dayOf(l) === day).sort((a, b) => a.meta.date < b.meta.date ? -1 : 1);
+  const mkQuiz = (round) => Array.from({ length: 10 }, (_, i) => {
+    const type = ["translate_from_arabic", "translate_to_arabic", "fill_blank", "multiple_choice", "grammar"][i % 5], id = "q" + round + "_" + i;
+    const base = { id, type, explanation: "The teacher says this in the lesson.", source_hint: "part 1" };
+    if (type === "translate_from_arabic") return { ...base, question: "ذَهَبْتُ إلى المدرسة", answer: "I went to school" };
+    if (type === "translate_to_arabic") return { ...base, question: "He wrote (round " + round + ")", answer: "كَتَبَ" };
+    if (type === "fill_blank") return { ...base, question: "ذهبتُ إلى ____ صباحاً", answer: "المدرسة" };
+    if (type === "multiple_choice") return { ...base, question: "Which word means 'he writes'?", options: ["يَكْتُبُ", "كَتَبَ", "ذَهَبَ", "قَرَأَ"], answer: "يَكْتُبُ" };
+    return { ...base, question: "When do we use the past tense?", answer: "For an action that is finished." };
+  });
+  async function dayJob(kind, day, work) {
+    if (!st.gemma) { if (!await download("gemma", "Downloading assistant", 2840)) return; }
+    const id = kind + ":" + day;
+    emit("progress", { job: "llm", id, pct: null, message: "Thinking" });
+    await sleep(1200); work();
+    emit("done", { job: "llm", id, ok: true, kind, date: day });
+  }
+  const makeRecap = day => ({ topic: "Past and present Arabic verbs, with new school vocabulary.", taught: ["The past tense: كَتَبَ, ذَهَبَ", "The present tense: يَكْتُبُ, يَذْهَبُ"],
+    focus: ["You can use the past tense to say that something already happened.", "You can say 'he writes' with يَكْتُبُ.", "You can say 'school' with المَدْرَسَة."],
+    vocab: [{ arabic: "المَدْرَسَة", meaning: "school", transliteration: "al-madrasa" }, { arabic: "كَتَبَ", meaning: "he wrote", transliteration: "kataba" }],
+    grammar: ["Past tense describes finished actions."], homework: ["Write five sentences with the new verbs."], unclear_note: "", stale: false, parts: partsOf(day).map(l => l.meta.id) });
+  const STRESS = new URLSearchParams(location.search).get("stress"); // ?stress=3000 streams that many segments fast
   const st = { fast: false, best: false, gemma: false, settings: { ui_lang: "en", model: "fast", mixed_languages: false } };
   let n = 2, cancelled = {};
-  const meta = l => ({ id: l.meta.id, title: l.meta.title, date: l.meta.date, duration_s: l.meta.duration_s, preview: (l.segments[0] || {}).text || "" });
+  const meta = l => ({ id: l.meta.id, day: dayOf(l), title: l.meta.title, date: l.meta.date, duration_s: l.meta.duration_s, status: l.meta.status || "done", preview: (l.segments[0] || {}).text || "" });
 
   async function download(id, label, mb) {
     for (let i = 0; i <= 20; i++) {
@@ -34,6 +67,7 @@
     return true;
   }
   async function llm(lessonId, work) {
+    cancelled = {};
     if (!st.gemma) { if (!await download("gemma", "Downloading assistant", 2840)) return; }
     emit("progress", { job: "llm", id: lessonId, pct: null, message: "Thinking" });
     await sleep(1500);
@@ -44,8 +78,37 @@
   const api = {
     async get_state() {
       return { models: { fast: { installed: st.fast, size_mb: 1600 }, best: { installed: st.best, size_mb: 3100 }, gemma: { installed: st.gemma, size_mb: 2840 } },
-        lessons: Object.values(lessons).map(meta), settings: st.settings };
+        lessons: Object.values(lessons).map(meta), days: api.list_days_sync(), settings: st.settings };
     },
+    list_days_sync() {
+      const by = {}; for (const l of Object.values(lessons)) (by[dayOf(l)] = by[dayOf(l)] || []).push(l);
+      return Object.keys(by).sort().reverse().map(d => { const ps = partsOf(d); return { date: d, parts: ps.map(meta), has_recap: !!(dayNotes[d] || {}).recap,
+        recap_stale: !!((dayNotes[d] || {}).recap || {}).stale, has_quiz: !!(dayNotes[d] || {}).quiz, total_duration_s: ps.reduce((a, l) => a + (l.meta.duration_s || 0), 0) }; });
+    },
+    async list_days() { return api.list_days_sync(); },
+    async get_day(day) {
+      const ps = partsOf(day), n = dayNotes[day] || {};
+      return JSON.parse(JSON.stringify({ date: day, parts: ps.map(meta), segments_by_part: Object.fromEntries(ps.map(l => [l.meta.id, l.segments])), notes: { recap: n.recap || null, quiz: n.quiz || null } }));
+    },
+    async set_lesson_date(id, day) {
+      const l = lessons[id], old = dayOf(l); l.meta.day = day; l.meta.date = day + String(l.meta.date).slice(10);
+      if ((dayNotes[old] || {}).recap) dayNotes[old].recap.stale = true;
+      if ((dayNotes[day] || {}).recap) dayNotes[day].recap.stale = true;
+      return { id, day, old_day: old };
+    },
+    async ai_day_recap(day) { dayJob("recap", day, () => { dayNotes[day] = { ...(dayNotes[day] || {}), recap: makeRecap(day) }; }); return { job_id: "recap:" + day }; },
+    async ai_day_quiz(day, o) {
+      const n = dayNotes[day] = dayNotes[day] || {};
+      if (n.quiz && !(o && o.more)) return { job_id: null, cached: true };
+      dayJob("quiz", day, () => { if (!n.recap) n.recap = makeRecap(day); const r = (n.quiz ? n.quiz.round : 0) + 1; n.quiz = { questions: mkQuiz(r), marks: {}, round: r }; });
+      return { job_id: "quiz:" + day };
+    },
+    async set_quiz_mark(day, qid, mark) {
+      const q = dayNotes[day].quiz; if (mark) q.marks[qid] = mark; else delete q.marks[qid];
+      return { marks: q.marks, score: Object.values(q.marks).filter(v => v === "right").length };
+    },
+    async export_day(day, fmt, ans, what) { return { path: "C:\\Users\\Sara\\Documents\\Arabic Lessons\\_days\\" + day + "-" + what + "." + fmt }; },
+    async open_file() { return { path: "" }; },
     async pick_audio() { await sleep(200); return "C:\\Users\\Sara\\Recordings\\Arabic lesson 12.m4a"; },
     async start_transcription(path, opts) {
       const id = "l" + (n++); cancelled = {};
@@ -53,16 +116,50 @@
       lessons[id] = { meta: { id, title, date: new Date().toISOString(), duration_s: 600 }, segments: [], notes: { qa: [] } };
       (async () => {
         if (!st.fast && !await download("fast", "Downloading speech model", 1600)) { delete lessons[id]; emit("done", { job: "transcribe", id, ok: false }); return; }
-        for (let i = 0; i < SEGS.length; i++) {
-          if (cancelled.all) { delete lessons[id]; emit("done", { job: "transcribe", id, ok: false }); return; }
-          await sleep(900);
-          const sg = { start: i * 12, end: i * 12 + 11, text: SEGS[i] };
+        const total = STRESS ? +STRESS : SEGS.length, t0 = performance.now();
+        for (let i = 0; i < total; i++) {
+          if (cancelled.all) { lessons[id].meta.status = "interrupted"; lessons[id].meta.audio_path = path; lessons[id].meta.audio_ok = true;
+            if (!lessons[id].segments.length) delete lessons[id]; emit("done", { job: "transcribe", id, ok: false, error: "cancelled" }); return; }
+          await sleep(STRESS ? 2 : 900);
+          const sg = { start: i * 12, end: i * 12 + 11, text: SEGS[i % SEGS.length] };
           lessons[id].segments.push(sg);
           emit("segment", { lesson_id: id, ...sg });
-          emit("progress", { job: "transcribe", id, pct: Math.round((i + 1) / SEGS.length * 100), message: "Transcribing", eta_s: (SEGS.length - i - 1) * 40 });
+          emit("progress", { job: "transcribe", id, pct: Math.round((i + 1) / total * 100), message: "Transcribing",
+            eta_s: i > 3 ? (total - i - 1) * 2400 : undefined, elapsed_s: (performance.now() - t0) / 1000 });
         }
+        lessons[id].meta.status = "done";
         emit("done", { job: "transcribe", id, ok: true });
       })();
+      return { lesson_id: id };
+    },
+    async resume_transcription(id, path) {
+      const l = lessons[id]; cancelled = {};
+      if (!l.meta.audio_ok && !path) throw new Error("AUDIO_MISSING: the original recording was not found");
+      l.meta.audio_ok = true; l.meta.status = "transcribing";
+      (async () => {
+        const total = STRESS ? +STRESS : SEGS.length, t0 = performance.now();
+        for (let i = l.segments.length; i < total; i++) {
+          if (cancelled.all) { l.meta.status = "interrupted"; emit("done", { job: "transcribe", id, ok: false, error: "cancelled" }); return; }
+          await sleep(STRESS ? 2 : 900);
+          const last = l.segments.length ? l.segments[l.segments.length - 1].end : 0;
+          const sg = { start: last, end: last + 11, text: SEGS[i % SEGS.length] };
+          l.segments.push(sg);
+          emit("segment", { lesson_id: id, ...sg });
+          const el = (performance.now() - t0) / 1000;
+          emit("progress", { job: "transcribe", id, pct: Math.round((i + 1) / total * 100), message: "Transcribing", eta_s: i > 3 ? (total - i - 1) * 2400 : undefined, elapsed_s: el });
+        }
+        l.meta.status = "done";
+        emit("done", { job: "transcribe", id, ok: true });
+      })();
+      return { lesson_id: id };
+    },
+    async import_transcript(path) {
+      await sleep(150);
+      const name = (path || "C:\\Users\\Sara\\Documents\\lesson notes.txt").split(/[\\/]/).pop();
+      const id = "l" + (n++), srt = /\.(srt|vtt)$/i.test(name);
+      const segments = SEGS.map((text, i) => srt ? { start: i * 12, end: i * 12 + 11, text } : { start: null, end: null, text });
+      lessons[id] = { meta: { id, title: name.replace(/\.[^.]+$/, ""), date: new Date().toISOString(), duration_s: srt ? 120 : 0, status: "imported", audio_path: null, audio_ok: false },
+        segments, notes: { qa: [] } };
       return { lesson_id: id };
     },
     async cancel() { cancelled.all = true; return true; },

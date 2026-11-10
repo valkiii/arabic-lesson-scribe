@@ -113,3 +113,4 @@ jobs:
             dist_installer/ArabicLessonScribe-Setup.exe
             dist_installer/ArabicLessonScribe-Setup.exe.sha256
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, 'test') }}

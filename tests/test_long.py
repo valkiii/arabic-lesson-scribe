@@ -6,7 +6,6 @@
 The synthetic recording is built in pytest's tmp dir (never committed) by repeating the Arabic sample.
 """
 import os
-import resource
 import sys
 import threading
 import time
@@ -14,6 +13,8 @@ import wave
 
 import numpy as np
 import pytest
+
+resource = pytest.importorskip("resource", reason="Unix-only memory probe")
 
 from app import api as api_mod
 from app import downloader
